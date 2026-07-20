@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Product } from "@/lib/products";
 import { useCart } from "@/context/CartContext";
+import { trackAddToCart } from "@/lib/analytics";
 
 export default function ProductActions({ product }: { product: Product }) {
   const { addItem } = useCart();
@@ -32,7 +33,10 @@ export default function ProductActions({ product }: { product: Product }) {
 
       <button
         type="button"
-        onClick={() => addItem(product, quantity)}
+        onClick={() => {
+          addItem(product, quantity);
+          trackAddToCart(product, quantity);
+        }}
         className="flex-1 rounded-full bg-black px-8 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-black/80"
       >
         Añadir al Carrito

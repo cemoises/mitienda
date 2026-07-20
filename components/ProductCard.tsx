@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Product } from "@/lib/products";
 import { useCart } from "@/context/CartContext";
 import Stars from "@/components/Stars";
+import { trackAddToCart } from "@/lib/analytics";
 
 export default function ProductCard({ product }: { product: Product }) {
   const { addItem } = useCart();
@@ -37,7 +38,10 @@ export default function ProductCard({ product }: { product: Product }) {
 
         <button
           type="button"
-          onClick={() => addItem(product)}
+          onClick={() => {
+            addItem(product);
+            trackAddToCart(product);
+          }}
           className="mt-auto w-full rounded-full bg-black px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-black/80"
         >
           Añadir al Carrito

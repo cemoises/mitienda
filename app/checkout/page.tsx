@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useEffect, useState, FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -8,6 +8,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useCart } from "@/context/CartContext";
 import { generateOrderNumber, saveLastOrder, saveOrderToHistory } from "@/lib/order";
+import { trackInitiateCheckout } from "@/lib/analytics";
 
 const COUNTRIES = [
   "Estados Unidos",
@@ -39,6 +40,14 @@ export default function CheckoutPage() {
   const total = totalPrice - discount;
 
   const isCartEmpty = items.length === 0;
+
+  useEffect(() => {
+    if (!isCartEmpty) {
+      trackInitiateCheckout(total);
+    }
+    // Se dispara una sola vez al entrar a checkout con items en el carrito.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCartEmpty]);
 
   const handleApplyCoupon = () => {
     const normalized = couponInput.trim().toUpperCase();

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
+import { trackInitiateCheckout } from "@/lib/analytics";
 
 export default function CartDrawer() {
   const { items, itemCount, totalPrice, isOpen, setIsOpen, removeItem, updateQuantity } =
@@ -115,7 +116,10 @@ export default function CartDrawer() {
               </p>
               <Link
                 href="/checkout"
-                onClick={() => setIsOpen(false)}
+                onClick={() => {
+                  setIsOpen(false);
+                  trackInitiateCheckout(totalPrice);
+                }}
                 className="block w-full rounded-full bg-black px-6 py-3.5 text-center text-sm font-semibold text-white transition-colors hover:bg-black/80"
               >
                 Proceder al Pago

@@ -1,14 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { readLastOrder, type Order } from "@/lib/order";
+import { trackPurchase } from "@/lib/analytics";
 
 export default function OrderSuccessPage() {
   const [order] = useState<Order | null>(() => readLastOrder());
+
+  useEffect(() => {
+    if (order) {
+      trackPurchase(order.orderNumber, order.total);
+    }
+    // Se dispara una sola vez al mostrar la confirmación de una orden existente.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!order) {
     return (
