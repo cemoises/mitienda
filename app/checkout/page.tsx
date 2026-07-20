@@ -93,6 +93,16 @@ export default function CheckoutPage() {
 
       saveLastOrder(order);
       saveOrderToHistory(order);
+
+      fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(order),
+      }).catch(() => {
+        // El checkout es simulado: si la persistencia en la nube falla,
+        // igual conservamos la orden localmente y continuamos el flujo.
+      });
+
       clearCart();
       router.push("/order-success");
     }, 1200);

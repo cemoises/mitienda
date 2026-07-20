@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -59,6 +59,36 @@ function downloadCsv(csv: string) {
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>(() => readAllOrders());
+  const [source, setSource] = useState<"local" | "remote">("local");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRemoteOrders() {
+      try {
+        const response = await fetch("/api/orders");
+        if (!response.ok) throw new Error("No se pudo consultar /api/orders");
+
+        const data = (await response.json()) as { orders: Order[]; configured: boolean };
+
+        if (!cancelled && data.configured) {
+          setOrders(data.orders);
+          setSource("remote");
+        }
+      } catch {
+        // Sin conexión a Supabase: seguimos mostrando el historial local.
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    loadRemoteOrders();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const totalOrders = orders.length;
   const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
@@ -90,7 +120,14 @@ export default function AdminOrdersPage() {
             <h1 className="text-2xl font-bold tracking-tight text-black sm:text-3xl">
               PARABOX — Gestión de Órdenes Globales
             </h1>
-            <p className="text-sm text-black/50">Panel interno de operaciones y logística.</p>
+            <p className="text-sm text-black/50">
+              Panel interno de operaciones y logística.{" "}
+              {!isLoading && (
+                <span className="font-medium text-black/40">
+                  · Fuente de datos: {source === "remote" ? "Supabase (nube)" : "almacenamiento local"}
+                </span>
+              )}
+            </p>
           </div>
 
           {orders.length === 0 ? (
