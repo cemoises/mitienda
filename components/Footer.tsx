@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 const POLICY_LINKS = [
   { href: "#envios", label: "Política de Envíos" },
   { href: "#devoluciones", label: "Devoluciones" },
@@ -68,8 +70,11 @@ export default function Footer() {
         </div>
       </div>
 
-      <div className="border-t border-black/10 px-4 py-6 text-center text-xs text-black/50 sm:px-6 lg:px-8">
-        © {new Date().getFullYear()} PARABOX. Todos los derechos reservados.
+      <div className="flex flex-col items-center gap-2 border-t border-black/10 px-4 py-6 text-center text-xs text-black/50 sm:flex-row sm:justify-between sm:px-6 lg:px-8">
+        <span>© {new Date().getFullYear()} PARABOX. Todos los derechos reservados.</span>
+        <Link href="/admin/orders" className="text-black/30 transition-colors hover:text-black/60">
+          Panel Admin
+        </Link>
       </div>
     </footer>
   );

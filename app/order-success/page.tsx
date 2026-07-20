@@ -5,10 +5,10 @@ import Image from "next/image";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { readLastOrder, type OrderSummary } from "@/lib/order";
+import { readLastOrder, type Order } from "@/lib/order";
 
 export default function OrderSuccessPage() {
-  const [order] = useState<OrderSummary | null>(() => readLastOrder());
+  const [order] = useState<Order | null>(() => readLastOrder());
 
   if (!order) {
     return (

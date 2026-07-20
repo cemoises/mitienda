@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useCart } from "@/context/CartContext";
-import { generateOrderNumber, saveLastOrder } from "@/lib/order";
+import { generateOrderNumber, saveLastOrder, saveOrderToHistory } from "@/lib/order";
 
 const COUNTRIES = [
   "Estados Unidos",
@@ -55,21 +55,35 @@ export default function CheckoutPage() {
     event.preventDefault();
     if (isCartEmpty || isSubmitting) return;
 
+    const formData = new FormData(event.currentTarget);
+    const shipping = {
+      firstName: String(formData.get("firstName") ?? ""),
+      lastName: String(formData.get("lastName") ?? ""),
+      phone: String(formData.get("phone") ?? ""),
+      address: String(formData.get("address") ?? ""),
+      city: String(formData.get("city") ?? ""),
+      country: String(formData.get("country") ?? ""),
+      postalCode: String(formData.get("postalCode") ?? ""),
+    };
+
     setIsSubmitting(true);
 
     window.setTimeout(() => {
-      const orderNumber = generateOrderNumber();
-
-      saveLastOrder({
-        orderNumber,
+      const order = {
+        orderNumber: generateOrderNumber(),
+        createdAt: new Date().toISOString(),
         email,
+        shipping,
         items,
         subtotal: totalPrice,
         discount,
         total,
         couponCode: appliedCoupon,
-      });
+        status: "Pendiente de Despacho" as const,
+      };
 
+      saveLastOrder(order);
+      saveOrderToHistory(order);
       clearCart();
       router.push("/order-success");
     }, 1200);
@@ -124,6 +138,7 @@ export default function CheckoutPage() {
                   <Field label="Teléfono" htmlFor="phone">
                     <input
                       id="phone"
+                      name="phone"
                       type="tel"
                       required
                       placeholder="+1 555 123 4567"
@@ -136,19 +151,19 @@ export default function CheckoutPage() {
               <FormSection title="Dirección de Envío">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="Nombre" htmlFor="firstName">
-                    <input id="firstName" type="text" required className={inputClasses} />
+                    <input id="firstName" name="firstName" type="text" required className={inputClasses} />
                   </Field>
                   <Field label="Apellido" htmlFor="lastName">
-                    <input id="lastName" type="text" required className={inputClasses} />
+                    <input id="lastName" name="lastName" type="text" required className={inputClasses} />
                   </Field>
                   <Field label="Dirección" htmlFor="address" full>
-                    <input id="address" type="text" required className={inputClasses} />
+                    <input id="address" name="address" type="text" required className={inputClasses} />
                   </Field>
                   <Field label="Ciudad" htmlFor="city">
-                    <input id="city" type="text" required className={inputClasses} />
+                    <input id="city" name="city" type="text" required className={inputClasses} />
                   </Field>
                   <Field label="País" htmlFor="country">
-                    <select id="country" required defaultValue="" className={inputClasses}>
+                    <select id="country" name="country" required defaultValue="" className={inputClasses}>
                       <option value="" disabled>
                         Seleccioná un país
                       </option>
@@ -160,7 +175,7 @@ export default function CheckoutPage() {
                     </select>
                   </Field>
                   <Field label="Código Postal" htmlFor="postalCode">
-                    <input id="postalCode" type="text" required className={inputClasses} />
+                    <input id="postalCode" name="postalCode" type="text" required className={inputClasses} />
                   </Field>
                 </div>
               </FormSection>
