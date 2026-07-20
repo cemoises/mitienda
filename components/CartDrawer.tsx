@@ -113,12 +113,13 @@ export default function CartDrawer() {
               <p className="mb-4 text-xs text-black/50">
                 Envío gratis e impuestos calculados al pagar.
               </p>
-              <button
-                type="button"
-                className="w-full rounded-full bg-black px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-black/80"
+              <Link
+                href="/checkout"
+                onClick={() => setIsOpen(false)}
+                className="block w-full rounded-full bg-black px-6 py-3.5 text-center text-sm font-semibold text-white transition-colors hover:bg-black/80"
               >
                 Proceder al Pago
-              </button>
+              </Link>
             </div>
           </>
         )}
