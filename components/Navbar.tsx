@@ -11,7 +11,7 @@ const NAV_LINKS = [
 ];
 
 export default function Navbar() {
-  const { itemCount } = useCart();
+  const { itemCount, setIsOpen } = useCart();
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -45,6 +45,7 @@ export default function Navbar() {
           <button
             type="button"
             aria-label="Carrito de compras"
+            onClick={() => setIsOpen(true)}
             className="relative rounded-full p-2 text-black transition-colors hover:bg-gray-100"
           >
             <CartIcon />
