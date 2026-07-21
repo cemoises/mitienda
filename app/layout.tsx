@@ -3,9 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { CartProvider } from "@/context/CartContext";
 import CartDrawer from "@/components/CartDrawer";
 import AnnouncementBar from "@/components/AnnouncementBar";
-import SalesPop from "@/components/SalesPop";
 import AnalyticsListener from "@/components/AnalyticsListener";
-import { listProducts } from "@/lib/products-repository";
+import { SITE_URL, SITE_DESCRIPTION } from "@/lib/site-config";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -17,10 +16,6 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://mitienda-smoky.vercel.app";
-const SITE_DESCRIPTION =
-  "Accesorios de escritorio premium y minimalistas para elevar tu espacio de trabajo. Envío internacional gratis, garantía de 30 días y pago 100% seguro.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -55,16 +50,11 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { products } = await listProducts();
-  const productNames = products
-    .filter((product) => product.status === "active")
-    .map((product) => product.name);
-
   return (
     <html
       lang="es"
@@ -76,7 +66,6 @@ export default async function RootLayout({
           <AnnouncementBar />
           {children}
           <CartDrawer />
-          <SalesPop productNames={productNames} />
         </CartProvider>
       </body>
     </html>

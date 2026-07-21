@@ -4,6 +4,15 @@ import type { Order } from "@/lib/order";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@cemoises.com";
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "PARABOX <onboarding@resend.dev>";
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export type OrderEmailType = "customer" | "admin" | "shipping_update";
 
 type SendOrderEmailParams = {
@@ -211,4 +220,62 @@ function buildShippingUpdateEmail(order: Order): { to: string; subject: string; 
     subject: `📦 Tu pedido ${order.orderNumber} está en camino — PARABOX`,
     html,
   };
+}
+
+export type ContactMessageInput = {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+};
+
+export async function sendContactMessage(
+  input: ContactMessageInput
+): Promise<{ error: string | null }> {
+  if (!isResendConfigured || !resend) {
+    return { error: "Resend no está configurado en este entorno." };
+  }
+
+  const html = `
+  <div style="background:#f4f4f5;padding:40px 16px;font-family:Arial, Helvetica, sans-serif;">
+    <table role="presentation" width="100%" style="max-width:480px;margin:0 auto;background:#000000;border-radius:16px;overflow:hidden;">
+      <tr>
+        <td style="padding:32px;">
+          <p style="color:#ffffff;font-size:18px;font-weight:bold;letter-spacing:0.08em;margin:0 0 4px;">PARABOX</p>
+          <p style="color:rgba(255,255,255,0.5);font-size:13px;margin:0 0 28px;">Nuevo mensaje de contacto</p>
+
+          <table role="presentation" width="100%" style="border-collapse:collapse;margin-bottom:16px;">
+            <tr>
+              <td style="color:rgba(255,255,255,0.5);font-size:13px;padding:4px 0;">De</td>
+              <td align="right" style="color:#ffffff;font-size:13px;padding:4px 0;">
+                ${escapeHtml(input.name)} (${escapeHtml(input.email)})
+              </td>
+            </tr>
+            <tr>
+              <td style="color:rgba(255,255,255,0.5);font-size:13px;padding:4px 0;">Asunto</td>
+              <td align="right" style="color:#ffffff;font-size:13px;padding:4px 0;">${escapeHtml(input.subject)}</td>
+            </tr>
+          </table>
+
+          <p style="color:rgba(255,255,255,0.5);font-size:12px;margin:0 0 6px;text-transform:uppercase;letter-spacing:0.05em;">
+            Mensaje
+          </p>
+          <p style="color:#ffffff;font-size:14px;line-height:1.6;white-space:pre-wrap;margin:0;">${escapeHtml(input.message)}</p>
+        </td>
+      </tr>
+    </table>
+  </div>`;
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: ADMIN_EMAIL,
+      replyTo: input.email,
+      subject: `✉️ Contacto: ${input.subject}`,
+      html,
+    });
+    return { error: error?.message ?? null };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "No se pudo enviar el mensaje." };
+  }
 }

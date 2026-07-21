@@ -3,10 +3,11 @@
 import Link from "next/link";
 
 const POLICY_LINKS = [
-  { href: "#envios", label: "Política de Envíos" },
-  { href: "#devoluciones", label: "Devoluciones" },
-  { href: "#privacidad", label: "Privacidad" },
-  { href: "#terminos", label: "Términos de Servicio" },
+  { href: "/shipping", label: "Política de Envíos" },
+  { href: "/refunds", label: "Devoluciones" },
+  { href: "/privacy", label: "Privacidad" },
+  { href: "/terms", label: "Términos de Servicio" },
+  { href: "/contact", label: "Contacto" },
 ];
 
 const SOCIAL_LINKS = [
@@ -42,9 +43,9 @@ export default function Footer() {
           <ul className="flex flex-col gap-2">
             {POLICY_LINKS.map((link) => (
               <li key={link.label}>
-                <a href={link.href} className="text-sm text-black/60 transition-colors hover:text-black">
+                <Link href={link.href} className="text-sm text-black/60 transition-colors hover:text-black">
                   {link.label}
-                </a>
+                </Link>
               </li>
             ))}
           </ul>
