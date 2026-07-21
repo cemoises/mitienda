@@ -37,11 +37,6 @@ export function generateOrderNumber(): string {
   return `#PBX-${random}`;
 }
 
-export function generateTransactionId(): string {
-  const random = Math.random().toString(36).slice(2, 10).toUpperCase();
-  return `TXN-${random}`;
-}
-
 export function saveLastOrder(order: Order) {
   if (typeof window === "undefined") return;
   window.sessionStorage.setItem(LAST_ORDER_KEY, JSON.stringify(order));

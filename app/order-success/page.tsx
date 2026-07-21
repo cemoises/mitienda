@@ -102,7 +102,7 @@ export default function OrderSuccessPage() {
                 </div>
 
                 <p className="mt-4 border-t border-black/10 pt-4 text-xs text-black/40">
-                  ID de transacción (demo): <span className="font-mono">{order.transactionId}</span>
+                  ID de transacción: <span className="font-mono">{order.transactionId}</span>
                 </p>
               </div>
             </>
