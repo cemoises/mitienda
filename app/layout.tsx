@@ -17,10 +17,41 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://mitienda-smoky.vercel.app";
+const SITE_DESCRIPTION =
+  "Accesorios de escritorio premium y minimalistas para elevar tu espacio de trabajo. Envío internacional gratis, garantía de 30 días y pago 100% seguro.";
+
 export const metadata: Metadata = {
-  title: "PARABOX — Desk & Focus",
-  description:
-    "Accesorios de escritorio premium y minimalistas. Envío internacional gratis, garantía de 30 días y pago seguro.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "PARABOX | Tienda Oficial",
+    template: "%s | PARABOX",
+  },
+  description: SITE_DESCRIPTION,
+  keywords: [
+    "PARABOX",
+    "accesorios de escritorio",
+    "setup minimalista",
+    "desk accessories premium",
+    "lámpara LED monitor",
+    "soporte laptop aluminio",
+    "organizador de cables",
+    "desk & focus",
+    "home office premium",
+  ],
+  openGraph: {
+    title: "PARABOX | Tienda Oficial",
+    description: SITE_DESCRIPTION,
+    url: "/",
+    siteName: "PARABOX",
+    locale: "es_ES",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "PARABOX | Tienda Oficial",
+    description: SITE_DESCRIPTION,
+  },
 };
 
 export default function RootLayout({
