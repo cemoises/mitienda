@@ -8,6 +8,7 @@ import type { Order } from "@/lib/order";
 
 export async function POST(request: Request) {
   if (!isSupabaseAdminConfigured) {
+    console.error("[ORDER_ERROR] POST /api/orders sin SUPABASE_SERVICE_ROLE_KEY configurada.");
     return NextResponse.json(
       { error: "El acceso administrativo a Supabase no está configurado (falta SUPABASE_SERVICE_ROLE_KEY)." },
       { status: 503 }
@@ -18,6 +19,10 @@ export async function POST(request: Request) {
   const { error } = await insertOrder(order);
 
   if (error) {
+    console.error("[ORDER_ERROR] No se pudo insertar la orden vía POST /api/orders.", {
+      orderNumber: order.orderNumber,
+      error,
+    });
     return NextResponse.json({ error }, { status: 500 });
   }
 
@@ -32,6 +37,7 @@ export async function GET() {
   const { orders, error } = await listOrders();
 
   if (error) {
+    console.error("[ORDER_ERROR] No se pudo listar órdenes vía GET /api/orders.", { error });
     return NextResponse.json({ error }, { status: 500 });
   }
 

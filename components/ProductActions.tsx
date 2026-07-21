@@ -8,6 +8,21 @@ import { trackAddToCart } from "@/lib/analytics";
 export default function ProductActions({ product }: { product: AdminProduct }) {
   const { addItem } = useCart();
   const [quantity, setQuantity] = useState(1);
+  const isOutOfStock = product.status === "out_of_stock";
+
+  if (isOutOfStock) {
+    return (
+      <div className="flex flex-col gap-3">
+        <span className="w-fit rounded-full bg-black/5 px-4 py-2 text-sm font-semibold text-black/60">
+          Producto agotado
+        </span>
+        <p className="text-sm text-black/50">
+          Este producto no tiene stock disponible en este momento. Volvé a intentarlo más
+          adelante.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center">

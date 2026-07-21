@@ -14,7 +14,7 @@ export default async function ProductPage({
   const { id } = await params;
   const product = await getProductById(id);
 
-  if (!product || product.status !== "active") {
+  if (!product || product.status === "draft") {
     notFound();
   }
 
@@ -36,6 +36,11 @@ export default async function ProductPage({
             <span className="absolute left-4 top-4 rounded-full bg-white/90 px-3.5 py-1.5 text-xs font-semibold text-black shadow-sm backdrop-blur">
               Garantía 30 días
             </span>
+            {product.status === "out_of_stock" && (
+              <span className="absolute right-4 top-4 rounded-full bg-black px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm">
+                Agotado
+              </span>
+            )}
           </div>
 
           <div className="flex flex-col gap-5">

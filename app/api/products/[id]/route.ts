@@ -20,6 +20,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const { product, error } = await updateProduct(id, input);
 
   if (error || !product) {
+    console.error("[PRODUCT_ERROR] No se pudo actualizar el producto.", { id, error });
     return NextResponse.json(
       { error: error ?? "No se pudo actualizar el producto." },
       { status: 500 }
@@ -41,6 +42,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const { error } = await deleteProduct(id);
 
   if (error) {
+    console.error("[PRODUCT_ERROR] No se pudo eliminar el producto.", { id, error });
     return NextResponse.json({ error }, { status: 500 });
   }
 

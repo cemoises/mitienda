@@ -11,6 +11,7 @@ export async function GET() {
   const { products, error } = await listProducts();
 
   if (error) {
+    console.error("[PRODUCT_ERROR] No se pudo listar productos vía GET /api/products.", { error });
     return NextResponse.json({ error }, { status: 500 });
   }
 
@@ -34,6 +35,7 @@ export async function POST(request: Request) {
   const { product, error } = await createProduct(input);
 
   if (error || !product) {
+    console.error("[PRODUCT_ERROR] No se pudo crear el producto.", { name: input.name, error });
     return NextResponse.json({ error: error ?? "No se pudo crear el producto." }, { status: 500 });
   }
 

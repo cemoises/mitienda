@@ -2,13 +2,15 @@ import { NextResponse } from "next/server";
 import { generateOrderNumber, type Order, type ShippingAddress } from "@/lib/order";
 import { insertOrder } from "@/lib/orders-repository";
 import { getProductById } from "@/lib/products-repository";
+import { findCoupon } from "@/lib/coupons";
+import { getClientIp, isRateLimited } from "@/lib/rate-limit";
 
 const SKRILL_PAY_TO_EMAIL = process.env.SKRILL_PAY_TO_EMAIL || "pagos@cemoises.com";
 const SKRILL_MERCHANT_ID = process.env.SKRILL_MERCHANT_ID || "demo-merchant-id";
 
-const COUPON_CODE = "PARABOX10";
-const COUPON_DISCOUNT_RATE = 0.1;
 const MAX_ITEM_QUANTITY = 20;
+const RATE_LIMIT = 10;
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000; // 10 minutos
 
 type RequestedItem = {
   id: string;
@@ -23,6 +25,16 @@ type SkrillCheckoutRequestBody = {
 };
 
 export async function POST(request: Request) {
+  const ip = getClientIp(request);
+
+  if (isRateLimited(`checkout:${ip}`, RATE_LIMIT, RATE_LIMIT_WINDOW_MS)) {
+    console.error("[RATE_LIMIT_ERROR] Demasiados intentos de checkout desde la misma IP.", { ip });
+    return NextResponse.json(
+      { error: "Demasiados intentos de compra. Probá de nuevo en unos minutos." },
+      { status: 429 }
+    );
+  }
+
   const body = (await request.json()) as SkrillCheckoutRequestBody;
 
   if (!body.email || !body.shipping || !body.items?.length) {
@@ -48,8 +60,26 @@ export async function POST(request: Request) {
     const product = await getProductById(requestedItem.id);
 
     if (!product || product.status !== "active") {
+      console.error("[ORDER_ERROR] Intento de compra de producto no disponible.", {
+        productId: requestedItem.id,
+        status: product?.status ?? "not_found",
+        ip,
+      });
       return NextResponse.json(
-        { error: `Uno de los productos de tu carrito ya no está disponible.` },
+        { error: "Uno de los productos de tu carrito ya no está disponible." },
+        { status: 409 }
+      );
+    }
+
+    if (product.stock < quantity) {
+      console.error("[ORDER_ERROR] Intento de compra con stock insuficiente.", {
+        productId: requestedItem.id,
+        requested: quantity,
+        stock: product.stock,
+        ip,
+      });
+      return NextResponse.json(
+        { error: `No queda stock suficiente de "${product.name}".` },
         { status: 409 }
       );
     }
@@ -58,11 +88,8 @@ export async function POST(request: Request) {
     verifiedItems.push({ ...product, quantity });
   }
 
-  const appliedCoupon =
-    typeof body.couponCode === "string" && body.couponCode.trim().toUpperCase() === COUPON_CODE
-      ? COUPON_CODE
-      : null;
-  const discount = appliedCoupon ? subtotal * COUPON_DISCOUNT_RATE : 0;
+  const appliedCoupon = findCoupon(body.couponCode);
+  const discount = appliedCoupon ? subtotal * appliedCoupon.discountRate : 0;
   const total = subtotal - discount;
 
   if (total <= 0) {
@@ -78,7 +105,7 @@ export async function POST(request: Request) {
     subtotal,
     discount,
     total,
-    couponCode: appliedCoupon,
+    couponCode: appliedCoupon?.code ?? null,
     paymentMethod: "skrill",
     transactionId: "",
     status: "Pendiente de Pago",
@@ -87,6 +114,10 @@ export async function POST(request: Request) {
   const { error } = await insertOrder(order);
 
   if (error) {
+    console.error("[ORDER_ERROR] No se pudo insertar la orden en Supabase.", {
+      orderNumber: order.orderNumber,
+      error,
+    });
     return NextResponse.json(
       { error: `No se pudo iniciar el pago: ${error}` },
       { status: 503 }

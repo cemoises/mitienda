@@ -30,7 +30,9 @@ const TRUST_ITEMS = [
 
 export default async function Home() {
   const { products } = await listProducts();
-  const activeProducts = products.filter((product) => product.status === "active");
+  const activeProducts = products.filter(
+    (product) => product.status === "active" || product.status === "out_of_stock"
+  );
 
   return (
     <>

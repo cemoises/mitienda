@@ -18,6 +18,7 @@ export async function POST(request: Request) {
   const { password } = (await request.json()) as { password?: string };
 
   if (!isValidAdminPassword(password)) {
+    console.error("[AUTH_ERROR] Intento de login fallido en /api/admin/login.");
     return NextResponse.json({ error: "Contraseña incorrecta." }, { status: 401 });
   }
 

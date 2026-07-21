@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { updateOrderStatus } from "@/lib/orders-repository";
+import { decrementStock } from "@/lib/products-repository";
 import { sendOrderEmail } from "@/lib/email";
 
 const SKRILL_MERCHANT_ID = process.env.SKRILL_MERCHANT_ID || "demo-merchant-id";
@@ -34,6 +35,7 @@ function isValidSkrillSignature(fields: Record<string, string>): boolean {
 
 export async function POST(request: Request) {
   if (!process.env.SKRILL_SECRET_WORD) {
+    console.error("[WEBHOOK_ERROR] Falta SKRILL_SECRET_WORD en el entorno, webhook rechazado.");
     return NextResponse.json(
       { error: "Webhook no configurado: falta SKRILL_SECRET_WORD en el entorno." },
       { status: 500 }
@@ -47,6 +49,10 @@ export async function POST(request: Request) {
   });
 
   if (!isValidSkrillSignature(fields)) {
+    console.error("[WEBHOOK_ERROR] Firma de Skrill inválida.", {
+      transactionId: fields.transaction_id,
+      status: fields.status,
+    });
     return NextResponse.json({ error: "Firma inválida" }, { status: 400 });
   }
 
@@ -61,14 +67,54 @@ export async function POST(request: Request) {
       transactionId: skrillTransactionId,
     });
 
-    if (!error && order) {
+    if (error || !order) {
+      console.error("[ORDER_ERROR] No se pudo marcar la orden como Pagado.", {
+        orderNumber,
+        error,
+      });
+    } else {
+      const { error: stockError } = await decrementStock(
+        order.items.map((item) => ({ id: item.id, quantity: item.quantity }))
+      );
+
+      if (stockError) {
+        console.error("[STOCK_ERROR] No se pudo descontar stock para la orden pagada.", {
+          orderNumber: order.orderNumber,
+          error: stockError,
+        });
+      }
+
       // Los emails no deben bloquear ni hacer fallar la confirmación del
-      // webhook ante Skrill: se envían en paralelo y se ignoran los errores.
-      await Promise.allSettled([
+      // webhook ante Skrill: se envían en paralelo y se loguea cada fallo.
+      const [customerResult, adminResult] = await Promise.allSettled([
         sendOrderEmail({ order, type: "customer" }),
         sendOrderEmail({ order, type: "admin" }),
       ]);
+
+      for (const [label, result] of [
+        ["customer", customerResult],
+        ["admin", adminResult],
+      ] as const) {
+        if (result.status === "rejected") {
+          console.error(`[EMAIL_ERROR] Excepción al enviar email de tipo "${label}".`, {
+            orderNumber: order.orderNumber,
+            reason: result.reason,
+          });
+        } else if (result.value.error) {
+          console.error(`[EMAIL_ERROR] Fallo al enviar email de tipo "${label}".`, {
+            orderNumber: order.orderNumber,
+            error: result.value.error,
+          });
+        }
+      }
     }
+  } else if (status !== "2") {
+    // No es un error: Skrill también notifica pagos pendientes/cancelados.
+    // Lo dejamos registrado para poder auditar el ciclo de vida completo del pago.
+    console.info("[WEBHOOK_INFO] Notificación de Skrill con status no exitoso.", {
+      orderNumber,
+      status,
+    });
   }
 
   return new NextResponse("OK", { status: 200 });

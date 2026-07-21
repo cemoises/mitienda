@@ -42,12 +42,22 @@ export async function PATCH(
   });
 
   if (error || !order) {
+    console.error("[ORDER_ERROR] No se pudo actualizar el fulfillment de la orden.", {
+      orderNumber,
+      requestedStatus: body.status,
+      error,
+    });
     return NextResponse.json({ error: error ?? "No se pudo actualizar la orden." }, { status: 500 });
   }
 
   if (body.status === "Enviado") {
-    // El email no debe hacer fallar la actualización de la orden si Resend falla.
-    await sendOrderEmail({ order, type: "shipping_update" });
+    const { error: emailError } = await sendOrderEmail({ order, type: "shipping_update" });
+    if (emailError) {
+      console.error("[EMAIL_ERROR] No se pudo enviar el email de shipping_update.", {
+        orderNumber: order.orderNumber,
+        error: emailError,
+      });
+    }
   }
 
   return NextResponse.json({ order });

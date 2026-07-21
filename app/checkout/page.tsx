@@ -8,6 +8,7 @@ import Footer from "@/components/Footer";
 import { useCart } from "@/context/CartContext";
 import { saveLastOrder, saveOrderToHistory, type Order, type ShippingAddress } from "@/lib/order";
 import { trackInitiateCheckout } from "@/lib/analytics";
+import { findCoupon } from "@/lib/coupons";
 
 const COUNTRIES = [
   "Estados Unidos",
@@ -21,9 +22,6 @@ const COUNTRIES = [
   "Irlanda",
 ];
 
-const COUPON_CODE = "PARABOX10";
-const COUPON_DISCOUNT_RATE = 0.1;
-
 export default function CheckoutPage() {
   const formRef = useRef<HTMLFormElement>(null);
   const { items, totalPrice, clearCart } = useCart();
@@ -35,7 +33,8 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const discount = appliedCoupon ? totalPrice * COUPON_DISCOUNT_RATE : 0;
+  const appliedCouponRate = appliedCoupon ? (findCoupon(appliedCoupon)?.discountRate ?? 0) : 0;
+  const discount = totalPrice * appliedCouponRate;
   const total = totalPrice - discount;
 
   const isCartEmpty = items.length === 0;
@@ -49,9 +48,9 @@ export default function CheckoutPage() {
   }, [isCartEmpty]);
 
   const handleApplyCoupon = () => {
-    const normalized = couponInput.trim().toUpperCase();
-    if (normalized === COUPON_CODE) {
-      setAppliedCoupon(normalized);
+    const coupon = findCoupon(couponInput);
+    if (coupon) {
+      setAppliedCoupon(coupon.code);
       setCouponError(null);
     } else {
       setAppliedCoupon(null);
@@ -299,7 +298,7 @@ export default function CheckoutPage() {
               {couponError && <p className="mb-4 -mt-2 text-xs text-red-600">{couponError}</p>}
               {appliedCoupon && (
                 <p className="mb-4 -mt-2 text-xs text-green-700">
-                  Cupón {appliedCoupon} aplicado: -10%
+                  Cupón {appliedCoupon} aplicado: -{Math.round(appliedCouponRate * 100)}%
                 </p>
               )}
 

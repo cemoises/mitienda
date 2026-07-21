@@ -1,7 +1,7 @@
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { supabaseAdmin, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
 
-export type ProductStatus = "active" | "draft";
+export type ProductStatus = "active" | "draft" | "out_of_stock";
 
 export type AdminProduct = {
   id: string;
@@ -180,4 +180,49 @@ export async function deleteProduct(id: string): Promise<{ error: string | null 
 
   const { error } = await supabaseAdmin.from("products").delete().eq("id", id);
   return { error: error?.message ?? null };
+}
+
+export type StockDecrementItem = { id: string; quantity: number };
+
+// Descuenta el stock comprado de cada producto vía la función SQL atómica
+// decrement_product_stock (ver supabase/schema.sql). No aborta al primer
+// error: intenta descontar todos los ítems y reporta cuáles fallaron, para
+// que un solo producto con problemas no bloquee el resto de la orden.
+export async function decrementStock(
+  items: StockDecrementItem[]
+): Promise<{ error: string | null }> {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return {
+      error: "El acceso administrativo a Supabase no está configurado (falta SUPABASE_SERVICE_ROLE_KEY).",
+    };
+  }
+
+  const results = await Promise.allSettled(
+    items.map((item) =>
+      supabaseAdmin!.rpc("decrement_product_stock", {
+        product_id: item.id,
+        qty: item.quantity,
+      })
+    )
+  );
+
+  const failures = results
+    .map((result, index) => ({ result, item: items[index] }))
+    .filter(
+      ({ result }) =>
+        result.status === "rejected" || (result.status === "fulfilled" && result.value.error)
+    );
+
+  if (failures.length > 0) {
+    const detail = failures
+      .map(({ result, item }) =>
+        result.status === "rejected"
+          ? `${item.id}: ${String(result.reason)}`
+          : `${item.id}: ${(result as PromiseFulfilledResult<{ error: { message: string } | null }>).value.error?.message}`
+      )
+      .join("; ");
+    return { error: `No se pudo descontar stock de: ${detail}` };
+  }
+
+  return { error: null };
 }

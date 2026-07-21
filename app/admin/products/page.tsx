@@ -214,10 +214,16 @@ export default function AdminProductsPage() {
                           className={`rounded-full px-3 py-1 text-xs font-semibold ${
                             product.status === "active"
                               ? "bg-green-100 text-green-800"
-                              : "bg-gray-100 text-gray-600"
+                              : product.status === "out_of_stock"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-gray-100 text-gray-600"
                           }`}
                         >
-                          {product.status === "active" ? "Activo" : "Borrador"}
+                          {product.status === "active"
+                            ? "Activo"
+                            : product.status === "out_of_stock"
+                              ? "Agotado"
+                              : "Borrador"}
                         </span>
                       </td>
                       <td className="px-4 py-3">

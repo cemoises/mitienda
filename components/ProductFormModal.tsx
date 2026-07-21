@@ -163,6 +163,7 @@ export default function ProductFormModal({ mode, product, onClose, onSave }: Pro
               className={inputClasses}
             >
               <option value="active">Activo</option>
+              <option value="out_of_stock">Agotado</option>
               <option value="draft">Borrador</option>
             </select>
           </Field>

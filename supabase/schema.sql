@@ -82,6 +82,28 @@ drop policy if exists "Allow public inserts" on products;
 drop policy if exists "Allow public updates" on products;
 drop policy if exists "Allow public deletes" on products;
 
+-- =====================================================================
+-- Descuento atómico de stock al confirmarse el pago de una orden.
+-- =====================================================================
+-- Se ejecuta como una única sentencia UPDATE (no lee-modifica-escribe desde
+-- la app), así dos webhooks concurrentes descontando el mismo producto no
+-- pisan el valor uno del otro. Si el stock llega a 0, el producto pasa
+-- automáticamente a 'out_of_stock' para que la tienda deje de venderlo.
+-- security definer: corre con los permisos del dueño de la función, no los
+-- del rol que la invoca, para no depender de policies adicionales.
+create or replace function decrement_product_stock(product_id uuid, qty integer)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update products
+  set
+    stock = greatest(stock - qty, 0),
+    status = case when (stock - qty) <= 0 and status = 'active' then 'out_of_stock' else status end
+  where id = product_id;
+$$;
+
 -- Semilla con el catálogo actual de PARABOX (Desk & Focus), para que el
 -- panel no arranque vacío. Se puede borrar o editar libremente desde /admin/products.
 insert into products (name, description, price, stock, category, image_url, status, rating, review_count, benefits)
