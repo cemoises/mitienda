@@ -1,9 +1,9 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useState, ReactNode } from "react";
-import type { Product } from "@/lib/products";
+import type { AdminProduct } from "@/lib/products-repository";
 
-export type CartItem = Product & { quantity: number };
+export type CartItem = AdminProduct & { quantity: number };
 
 type CartContextValue = {
   items: CartItem[];
@@ -11,7 +11,7 @@ type CartContextValue = {
   totalPrice: number;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
-  addItem: (product: Product, quantity?: number) => void;
+  addItem: (product: AdminProduct, quantity?: number) => void;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
@@ -23,7 +23,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
 
-  const addItem = useCallback((product: Product, quantity = 1) => {
+  const addItem = useCallback((product: AdminProduct, quantity = 1) => {
     setItems((current) => {
       const existing = current.find((item) => item.id === product.id);
       if (existing) {

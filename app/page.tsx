@@ -3,7 +3,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
 import FAQ from "@/components/FAQ";
-import { featuredProducts } from "@/lib/products";
+import { listProducts } from "@/lib/products-repository";
 
 const TRUST_ITEMS = [
   {
@@ -28,7 +28,10 @@ const TRUST_ITEMS = [
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const { products } = await listProducts();
+  const activeProducts = products.filter((product) => product.status === "active");
+
   return (
     <>
       <Navbar />
@@ -88,11 +91,17 @@ export default function Home() {
             <p className="text-black/60">Productos estrella para tu espacio de trabajo ideal.</p>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {featuredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          {activeProducts.length === 0 ? (
+            <p className="text-center text-sm text-black/50">
+              Estamos actualizando el catálogo. Volvé a intentarlo en unos minutos.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {activeProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          )}
         </section>
 
         <FAQ />

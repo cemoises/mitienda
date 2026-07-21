@@ -1,4 +1,4 @@
-import type { Product } from "@/lib/products";
+import type { AdminProduct } from "@/lib/products-repository";
 
 type FbqFn = (...args: unknown[]) => void;
 type TtqTrackFn = (event: string, payload?: Record<string, unknown>) => void;
@@ -30,7 +30,7 @@ export function trackPageView() {
   emit("PageView");
 }
 
-export function trackAddToCart(product: Product, quantity = 1) {
+export function trackAddToCart(product: AdminProduct, quantity = 1) {
   emit("AddToCart", {
     content_id: product.id,
     content_name: product.name,

@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
-import { isSupabaseConfigured } from "@/lib/supabase";
+import { isSupabaseAdminConfigured } from "@/lib/supabase-admin";
 import { insertOrder, listOrders } from "@/lib/orders-repository";
 import type { Order } from "@/lib/order";
 
+// Protegido por proxy.ts (requiere sesión admin) — esta ruta expone PII de
+// clientes (nombre, dirección, teléfono, email) y ya no debe ser pública.
+
 export async function POST(request: Request) {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseAdminConfigured) {
     return NextResponse.json(
-      { error: "Supabase no está configurado en este entorno." },
+      { error: "El acceso administrativo a Supabase no está configurado (falta SUPABASE_SERVICE_ROLE_KEY)." },
       { status: 503 }
     );
   }
@@ -22,7 +25,7 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseAdminConfigured) {
     return NextResponse.json({ orders: [], configured: false });
   }
 

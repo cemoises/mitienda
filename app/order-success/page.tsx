@@ -77,7 +77,7 @@ export default function OrderSuccessPage() {
                   {order.items.map((item) => (
                     <li key={item.id} className="flex gap-3">
                       <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-white">
-                        <Image src={item.image} alt={item.name} fill sizes="64px" className="object-cover" />
+                        <Image src={item.imageUrl} alt={item.name} fill sizes="64px" className="object-cover" />
                         <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-black text-[10px] font-semibold text-white">
                           {item.quantity}
                         </span>

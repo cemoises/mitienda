@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isSupabaseConfigured } from "@/lib/supabase";
+import { isSupabaseAdminConfigured } from "@/lib/supabase-admin";
 import { updateOrderStatus } from "@/lib/orders-repository";
 import { sendOrderEmail } from "@/lib/email";
 import type { Carrier, OrderStatus } from "@/lib/order";
@@ -14,9 +14,9 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ orderNumber: string }> }
 ) {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseAdminConfigured) {
     return NextResponse.json(
-      { error: "Supabase no está configurado en este entorno." },
+      { error: "El acceso administrativo a Supabase no está configurado (falta SUPABASE_SERVICE_ROLE_KEY)." },
       { status: 503 }
     );
   }

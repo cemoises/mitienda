@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { featuredProducts } from "@/lib/products";
 
 type Notification = {
   name: string;
@@ -25,27 +24,29 @@ function randomBetween(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function buildNotification(): Notification {
+function buildNotification(productNames: string[]): Notification {
   const customer = CUSTOMERS[Math.floor(Math.random() * CUSTOMERS.length)];
-  const product = featuredProducts[Math.floor(Math.random() * featuredProducts.length)];
+  const productName = productNames[Math.floor(Math.random() * productNames.length)];
 
   return {
     name: customer.name,
     location: customer.location,
-    productName: product.name,
+    productName,
     minutesAgo: randomBetween(2, 18),
   };
 }
 
-export default function SalesPop() {
+export default function SalesPop({ productNames }: { productNames: string[] }) {
   const [notification, setNotification] = useState<Notification | null>(null);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    if (productNames.length === 0) return;
+
     let hideTimer: ReturnType<typeof setTimeout>;
 
     function showNotification() {
-      setNotification(buildNotification());
+      setNotification(buildNotification(productNames));
       setVisible(true);
       hideTimer = setTimeout(() => setVisible(false), 6000);
     }
@@ -60,7 +61,7 @@ export default function SalesPop() {
       clearTimeout(hideTimer);
       clearInterval(interval);
     };
-  }, []);
+  }, [productNames]);
 
   if (!notification) return null;
 

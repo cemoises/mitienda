@@ -6,6 +6,7 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ProductFormModal from "@/components/ProductFormModal";
+import AdminLogoutLink from "@/components/AdminLogoutLink";
 import { ToastStack, useToasts } from "@/components/Toast";
 import type { AdminProduct, ProductInput } from "@/lib/products-repository";
 
@@ -131,7 +132,8 @@ export default function AdminProductsPage() {
                 Catálogo conectado a Supabase.{" "}
                 <Link href="/admin/orders" className="underline hover:text-black">
                   Ver Órdenes
-                </Link>
+                </Link>{" "}
+                · <AdminLogoutLink />
               </p>
             </div>
 

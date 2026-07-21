@@ -5,6 +5,7 @@ import CartDrawer from "@/components/CartDrawer";
 import AnnouncementBar from "@/components/AnnouncementBar";
 import SalesPop from "@/components/SalesPop";
 import AnalyticsListener from "@/components/AnalyticsListener";
+import { listProducts } from "@/lib/products-repository";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -54,11 +55,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const { products } = await listProducts();
+  const productNames = products
+    .filter((product) => product.status === "active")
+    .map((product) => product.name);
+
   return (
     <html
       lang="es"
@@ -70,7 +76,7 @@ export default function RootLayout({
           <AnnouncementBar />
           {children}
           <CartDrawer />
-          <SalesPop />
+          <SalesPop productNames={productNames} />
         </CartProvider>
       </body>
     </html>

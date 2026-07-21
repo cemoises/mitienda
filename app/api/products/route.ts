@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { isSupabaseAdminConfigured } from "@/lib/supabase-admin";
 import { createProduct, listProducts, type ProductInput } from "@/lib/products-repository";
 
 export async function GET() {
@@ -17,9 +18,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseAdminConfigured) {
     return NextResponse.json(
-      { error: "Supabase no está configurado en este entorno." },
+      { error: "El acceso administrativo a Supabase no está configurado (falta SUPABASE_SERVICE_ROLE_KEY)." },
       { status: 503 }
     );
   }

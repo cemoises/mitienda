@@ -1,5 +1,9 @@
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
 import type { Carrier, Order, OrderStatus } from "@/lib/order";
+
+// La tabla "orders" no tiene NINGUNA policy pública de Supabase (ver
+// supabase/schema.sql): contiene PII de clientes. Todo acceso, incluyendo
+// lecturas, pasa exclusivamente por el cliente service_role server-side.
 
 type OrderRow = {
   order_number: string;
@@ -56,21 +60,24 @@ function fromRow(row: OrderRow): Order {
   };
 }
 
+const NOT_CONFIGURED_ERROR =
+  "El acceso administrativo a Supabase no está configurado (falta SUPABASE_SERVICE_ROLE_KEY).";
+
 export async function insertOrder(order: Order): Promise<{ error: string | null }> {
-  if (!isSupabaseConfigured || !supabase) {
-    return { error: "Supabase no está configurado en este entorno." };
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return { error: NOT_CONFIGURED_ERROR };
   }
 
-  const { error } = await supabase.from("orders").insert(toRow(order));
+  const { error } = await supabaseAdmin.from("orders").insert(toRow(order));
   return { error: error?.message ?? null };
 }
 
 export async function listOrders(): Promise<{ orders: Order[]; error: string | null }> {
-  if (!isSupabaseConfigured || !supabase) {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return { orders: [], error: null };
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from("orders")
     .select("*")
     .order("created_at", { ascending: false });
@@ -91,8 +98,8 @@ export async function updateOrderStatus(
     carrier?: Carrier;
   }
 ): Promise<{ order: Order | null; error: string | null }> {
-  if (!isSupabaseConfigured || !supabase) {
-    return { order: null, error: "Supabase no está configurado en este entorno." };
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return { order: null, error: NOT_CONFIGURED_ERROR };
   }
 
   const payload: Record<string, unknown> = { status: updates.status };
@@ -106,7 +113,7 @@ export async function updateOrderStatus(
     payload.carrier = updates.carrier;
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from("orders")
     .update(payload)
     .eq("order_number", orderNumber)
@@ -121,11 +128,11 @@ export async function updateOrderStatus(
 }
 
 export async function getOrderByNumber(orderNumber: string): Promise<Order | null> {
-  if (!isSupabaseConfigured || !supabase) {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return null;
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from("orders")
     .select("*")
     .eq("order_number", orderNumber)

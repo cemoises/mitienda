@@ -5,6 +5,7 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import FulfillmentModal from "@/components/FulfillmentModal";
+import AdminLogoutLink from "@/components/AdminLogoutLink";
 import { ToastStack, useToasts } from "@/components/Toast";
 import { clearAllOrders, readAllOrders, type Order, type OrderStatus } from "@/lib/order";
 
@@ -136,7 +137,8 @@ export default function AdminOrdersPage() {
               Panel interno de operaciones y logística.{" "}
               <Link href="/admin/products" className="underline hover:text-black">
                 Ver Productos
-              </Link>
+              </Link>{" "}
+              · <AdminLogoutLink />
               {!isLoading && (
                 <span className="font-medium text-black/40">
                   {" "}

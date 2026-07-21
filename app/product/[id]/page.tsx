@@ -4,7 +4,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Stars from "@/components/Stars";
 import ProductActions from "@/components/ProductActions";
-import { getProductById } from "@/lib/products";
+import { getProductById } from "@/lib/products-repository";
 
 export default async function ProductPage({
   params,
@@ -12,9 +12,9 @@ export default async function ProductPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const product = getProductById(id);
+  const product = await getProductById(id);
 
-  if (!product) {
+  if (!product || product.status !== "active") {
     notFound();
   }
 
@@ -26,7 +26,7 @@ export default async function ProductPage({
         <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-2 md:items-start md:py-16 lg:px-8">
           <div className="relative aspect-square w-full overflow-hidden rounded-3xl bg-[var(--color-surface)]">
             <Image
-              src={product.image}
+              src={product.imageUrl}
               alt={product.name}
               fill
               priority

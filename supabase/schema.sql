@@ -1,4 +1,5 @@
--- Ejecutar en el SQL Editor de Supabase para crear la tabla de órdenes de PARABOX.
+-- Ejecutar en el SQL Editor de Supabase.
+-- Este script es idempotente: se puede correr varias veces sin romper nada.
 
 create table if not exists orders (
   id uuid primary key default gen_random_uuid(),
@@ -18,36 +19,29 @@ create table if not exists orders (
   carrier text
 );
 
--- Migración idempotente: agrega las columnas de fulfillment si la tabla
--- "orders" ya existía de una versión anterior (ej. en tu proyecto de Supabase
--- ya desplegado). Ejecutar este bloque es seguro aunque las columnas ya existan.
 alter table orders add column if not exists tracking_number text;
 alter table orders add column if not exists carrier text;
 
 alter table orders enable row level security;
 
--- Permite insertar órdenes desde el checkout público (clave anon).
-create policy "Allow public inserts" on orders
-  for insert
-  with check (true);
-
--- Permite leer órdenes desde el panel admin (clave anon).
--- En producción, restringí esta policy a un rol autenticado.
-create policy "Allow public reads" on orders
-  for select
-  using (true);
-
--- Permite que el webhook de Skrill marque la orden como 'Pagado'.
--- IMPORTANTE: en producción, mové esta escritura a una SUPABASE_SERVICE_ROLE_KEY
--- server-only (sin exponerla al cliente) y eliminá esta policy pública de UPDATE,
--- para que solo el backend confiable pueda modificar el estado de una orden.
-create policy "Allow public updates" on orders
-  for update
-  using (true)
-  with check (true);
+-- =====================================================================
+-- SEGURIDAD: orders no tiene NINGUNA policy pública.
+-- =====================================================================
+-- La tabla "orders" contiene PII de clientes (nombre, dirección, teléfono,
+-- email) y no debe ser legible ni escribible con la clave anon (la que
+-- vive en el bundle de JS del navegador). Todo insert/select/update pasa
+-- por rutas server-side (app/api/checkout/skrill, app/api/webhooks/skrill,
+-- app/api/orders/*) usando SUPABASE_SERVICE_ROLE_KEY, que en Supabase
+-- bypassea RLS automáticamente — por eso no hace falta (ni conviene)
+-- declarar policies "para service_role": simplemente no declarar policies
+-- públicas ya deja a la tabla en default-deny para anon/authenticated.
+drop policy if exists "Allow public inserts" on orders;
+drop policy if exists "Allow public reads" on orders;
+drop policy if exists "Allow public updates" on orders;
 
 -- =====================================================================
--- Tabla de productos para el Panel de Administración (/admin/products).
+-- Tabla de productos para el Panel de Administración (/admin/products)
+-- y para el storefront público (que ahora lee el catálogo desde acá).
 -- =====================================================================
 
 create table if not exists products (
@@ -59,55 +53,62 @@ create table if not exists products (
   category text not null default '',
   image_url text not null default '',
   status text not null default 'active',
+  rating numeric not null default 4.8,
+  review_count integer not null default 0,
+  benefits jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now()
 );
 
+alter table products add column if not exists rating numeric not null default 4.8;
+alter table products add column if not exists review_count integer not null default 0;
+alter table products add column if not exists benefits jsonb not null default '[]'::jsonb;
+
 alter table products enable row level security;
 
--- IMPORTANTE: /admin/products no tiene autenticación propia (es un enlace
--- discreto, igual que /admin/orders). Estas policies públicas alcanzan para
--- una demo, pero en producción real deberías protegerlas con un rol
--- autenticado o mover las escrituras a una SUPABASE_SERVICE_ROLE_KEY server-only.
+-- SELECT sí es público a propósito: es el catálogo de la tienda, cualquier
+-- visitante anónimo tiene que poder listar y ver productos sin loguearse.
+drop policy if exists "Allow public reads" on products;
 create policy "Allow public reads" on products
   for select
   using (true);
 
-create policy "Allow public inserts" on products
-  for insert
-  with check (true);
-
-create policy "Allow public updates" on products
-  for update
-  using (true)
-  with check (true);
-
-create policy "Allow public deletes" on products
-  for delete
-  using (true);
+-- =====================================================================
+-- SEGURIDAD: sin policies públicas de escritura en products.
+-- =====================================================================
+-- Crear/editar/borrar productos solo puede hacerlo el backend autenticado
+-- como admin, usando SUPABASE_SERVICE_ROLE_KEY (bypassea RLS). La clave
+-- anon pública ya no puede insertar, actualizar ni borrar productos.
+drop policy if exists "Allow public inserts" on products;
+drop policy if exists "Allow public updates" on products;
+drop policy if exists "Allow public deletes" on products;
 
 -- Semilla con el catálogo actual de PARABOX (Desk & Focus), para que el
 -- panel no arranque vacío. Se puede borrar o editar libremente desde /admin/products.
-insert into products (name, description, price, stock, category, image_url, status)
+insert into products (name, description, price, stock, category, image_url, status, rating, review_count, benefits)
 select * from (values
   ('Lámpara LED Bar para Monitor',
    'Ilumina tu escritorio sin reflejos ni fatiga visual. Se acopla a la parte superior de tu monitor y proyecta una luz uniforme y cálida.',
    49::numeric, 25, 'PARABOX Desk & Focus',
    'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=1200&q=80',
-   'active'),
+   'active', 4.8::numeric, 96,
+   '["Iluminación asimétrica sin reflejos en pantalla","Control táctil de brillo y temperatura de color","Diseño ultra delgado en aluminio anodizado","Plug & Play vía USB-C"]'::jsonb),
   ('Soporte para Laptop en Aluminio',
    'Eleva tu pantalla a la altura ideal para una postura correcta. Aluminio sólido, plegable y portátil.',
    59::numeric, 40, 'PARABOX Desk & Focus',
    'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?auto=format&fit=crop&w=1200&q=80',
-   'active'),
+   'active', 4.9::numeric, 142,
+   '["Materiales de alta calidad en aluminio sólido","Diseño ergonómico ajustable en altura","Plegable y portátil, ideal para viajar","Compatible con laptops de 10\" a 17\""]'::jsonb),
   ('Organizador Magnético de Cables',
    'Dile adiós al caos de cables. Cierre magnético discreto que se integra a la estética de tu escritorio.',
    24::numeric, 60, 'PARABOX Desk & Focus',
    'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?auto=format&fit=crop&w=1200&q=80',
-   'active'),
+   'active', 4.7::numeric, 78,
+   '["Cierre magnético de alta resistencia","Set de 6 unidades en silicona premium","Plug & Play, sin herramientas ni instalación","Diseño minimalista en negro mate"]'::jsonb),
   ('Mat de Escritorio Minimalista',
    'Una base uniforme para tu teclado, mouse y taza de café. Cuero vegano premium resistente al agua.',
    35::numeric, 30, 'PARABOX Desk & Focus',
    'https://images.unsplash.com/photo-1593642632823-8f785ba67e45?auto=format&fit=crop&w=1200&q=80',
-   'active')
-) as seed(name, description, price, stock, category, image_url, status)
+   'active', 4.9::numeric, 61,
+   '["Cuero vegano premium resistente al agua","Diseño ergonómico de bordes cosidos","Base antideslizante de alta durabilidad","Disponible en negro y gris piedra"]'::jsonb)
+) as seed(name, description, price, stock, category, image_url, status, rating, review_count, benefits)
 where not exists (select 1 from products);

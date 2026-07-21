@@ -2,19 +2,19 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import type { Product } from "@/lib/products";
+import type { AdminProduct } from "@/lib/products-repository";
 import { useCart } from "@/context/CartContext";
 import Stars from "@/components/Stars";
 import { trackAddToCart } from "@/lib/analytics";
 
-export default function ProductCard({ product }: { product: Product }) {
+export default function ProductCard({ product }: { product: AdminProduct }) {
   const { addItem } = useCart();
 
   return (
     <div className="group flex flex-col overflow-hidden rounded-2xl border border-black/10 bg-white transition-shadow hover:shadow-lg">
       <Link href={`/product/${product.id}`} className="relative block aspect-square w-full overflow-hidden bg-[var(--color-surface)]">
         <Image
-          src={product.image}
+          src={product.imageUrl}
           alt={product.name}
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"

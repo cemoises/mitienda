@@ -95,10 +95,10 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           email,
           shipping,
-          items,
-          subtotal: totalPrice,
-          discount,
-          total,
+          // Solo mandamos id + cantidad: el precio y el total se recalculan
+          // server-side contra Supabase, nunca confiamos en lo que venga
+          // del cliente para eso.
+          items: items.map((item) => ({ id: item.id, quantity: item.quantity })),
           couponCode: appliedCoupon,
         }),
       });
@@ -262,7 +262,7 @@ export default function CheckoutPage() {
                 {items.map((item) => (
                   <li key={item.id} className="flex gap-3">
                     <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-white">
-                      <Image src={item.image} alt={item.name} fill sizes="64px" className="object-cover" />
+                      <Image src={item.imageUrl} alt={item.name} fill sizes="64px" className="object-cover" />
                       <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-black text-[10px] font-semibold text-white">
                         {item.quantity}
                       </span>

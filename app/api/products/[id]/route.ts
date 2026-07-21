@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { isSupabaseConfigured } from "@/lib/supabase";
+import { isSupabaseAdminConfigured } from "@/lib/supabase-admin";
 import { deleteProduct, updateProduct, type ProductInput } from "@/lib/products-repository";
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseAdminConfigured) {
     return NextResponse.json(
-      { error: "Supabase no está configurado en este entorno." },
+      { error: "El acceso administrativo a Supabase no está configurado (falta SUPABASE_SERVICE_ROLE_KEY)." },
       { status: 503 }
     );
   }
@@ -30,9 +30,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseAdminConfigured) {
     return NextResponse.json(
-      { error: "Supabase no está configurado en este entorno." },
+      { error: "El acceso administrativo a Supabase no está configurado (falta SUPABASE_SERVICE_ROLE_KEY)." },
       { status: 503 }
     );
   }

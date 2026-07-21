@@ -4,18 +4,25 @@ import { updateOrderStatus } from "@/lib/orders-repository";
 import { sendOrderEmail } from "@/lib/email";
 
 const SKRILL_MERCHANT_ID = process.env.SKRILL_MERCHANT_ID || "demo-merchant-id";
-const SKRILL_SECRET_WORD = process.env.SKRILL_SECRET_WORD || "demo-secret-word";
 
 // Skrill firma cada notificación con un MD5 calculado a partir de campos fijos
 // + el secret word configurado en el panel del merchant. Referencia:
 // https://www.skrill.com/en/skrill-for-business/integration-3/other-integrations/quick-checkout/
+//
+// SIN fallback: si SKRILL_SECRET_WORD no está seteada, cualquiera que haya
+// leído este archivo (el repo es público) podría calcular una firma válida
+// contra un secreto conocido y marcar órdenes como "Pagado" gratis. Preferimos
+// que el webhook falle explícitamente antes que aceptar ese riesgo.
 function isValidSkrillSignature(fields: Record<string, string>): boolean {
+  const secretWord = process.env.SKRILL_SECRET_WORD;
+  if (!secretWord) return false;
+
   const { transaction_id, mb_amount, mb_currency, status, md5sig } = fields;
   if (!md5sig || !transaction_id || !mb_amount || !mb_currency || !status) return false;
 
   const secretHash = crypto
     .createHash("md5")
-    .update(SKRILL_SECRET_WORD)
+    .update(secretWord)
     .digest("hex")
     .toUpperCase();
 
@@ -26,6 +33,13 @@ function isValidSkrillSignature(fields: Record<string, string>): boolean {
 }
 
 export async function POST(request: Request) {
+  if (!process.env.SKRILL_SECRET_WORD) {
+    return NextResponse.json(
+      { error: "Webhook no configurado: falta SKRILL_SECRET_WORD en el entorno." },
+      { status: 500 }
+    );
+  }
+
   const formData = await request.formData();
   const fields: Record<string, string> = {};
   formData.forEach((value, key) => {

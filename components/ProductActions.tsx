@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import type { Product } from "@/lib/products";
+import type { AdminProduct } from "@/lib/products-repository";
 import { useCart } from "@/context/CartContext";
 import { trackAddToCart } from "@/lib/analytics";
 
-export default function ProductActions({ product }: { product: Product }) {
+export default function ProductActions({ product }: { product: AdminProduct }) {
   const { addItem } = useCart();
   const [quantity, setQuantity] = useState(1);
 
