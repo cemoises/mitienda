@@ -13,7 +13,10 @@ import type {
   OnClickActions,
 } from "@paypal/paypal-js";
 
-const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "sb";
+// TEMPORAL: forzado a "sb" (clave pública de sandbox de PayPal) para descartar
+// que el problema de renderizado sea por cómo llega NEXT_PUBLIC_PAYPAL_CLIENT_ID.
+// Revertir a `process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "sb"` una vez confirmado.
+const paypalClientId = "sb";
 
 if (typeof window !== "undefined") {
   console.log("PayPal Client ID en runtime:", process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID);
