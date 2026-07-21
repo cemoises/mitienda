@@ -123,8 +123,12 @@ export default function AdminOrdersPage() {
             </h1>
             <p className="text-sm text-black/50">
               Panel interno de operaciones y logística.{" "}
+              <Link href="/admin/products" className="underline hover:text-black">
+                Ver Productos
+              </Link>
               {!isLoading && (
                 <span className="font-medium text-black/40">
+                  {" "}
                   · Fuente de datos: {source === "remote" ? "Supabase (nube)" : "almacenamiento local"}
                 </span>
               )}
