@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { clearAllOrders, readAllOrders, type Order } from "@/lib/order";
+import FulfillmentModal from "@/components/FulfillmentModal";
+import { ToastStack, useToasts } from "@/components/Toast";
+import { clearAllOrders, readAllOrders, type Order, type OrderStatus } from "@/lib/order";
 
 const CSV_HEADERS = [
   "SKU",
@@ -61,6 +63,8 @@ export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>(() => readAllOrders());
   const [source, setSource] = useState<"local" | "remote">("local");
   const [isLoading, setIsLoading] = useState(true);
+  const [fulfillmentOrder, setFulfillmentOrder] = useState<Order | null>(null);
+  const { toasts, showToast, dismissToast } = useToasts();
 
   useEffect(() => {
     let cancelled = false;
@@ -98,6 +102,13 @@ export default function AdminOrdersPage() {
   const handleExportCsv = () => {
     if (orders.length === 0) return;
     downloadCsv(buildCsv(orders));
+  };
+
+  const handleShipped = (updatedOrder: Order) => {
+    setOrders((current) =>
+      current.map((order) => (order.orderNumber === updatedOrder.orderNumber ? updatedOrder : order))
+    );
+    showToast("success", `Orden ${updatedOrder.orderNumber} marcada como enviada.`);
   };
 
   const handleClearOrders = () => {
@@ -190,6 +201,7 @@ export default function AdminOrdersPage() {
                       <th className="px-4 py-3">Productos</th>
                       <th className="px-4 py-3">Total USD</th>
                       <th className="px-4 py-3">Estado</th>
+                      <th className="px-4 py-3">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -225,14 +237,26 @@ export default function AdminOrdersPage() {
                         </td>
                         <td className="px-4 py-4">
                           <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                              order.status === "Pagado"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-amber-100 text-amber-800"
-                            }`}
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClasses(order.status)}`}
                           >
                             {order.status}
                           </span>
+                          {order.trackingNumber && (
+                            <p className="mt-1 text-[11px] text-black/40">
+                              {order.carrier} · {order.trackingNumber}
+                            </p>
+                          )}
+                        </td>
+                        <td className="px-4 py-4">
+                          {order.status === "Pagado" && (
+                            <button
+                              type="button"
+                              onClick={() => setFulfillmentOrder(order)}
+                              className="rounded-full bg-black px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-black/80"
+                            >
+                              Procesar con Proveedor
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -245,8 +269,31 @@ export default function AdminOrdersPage() {
       </main>
 
       <Footer />
+
+      {fulfillmentOrder && (
+        <FulfillmentModal
+          order={fulfillmentOrder}
+          onClose={() => setFulfillmentOrder(null)}
+          onSuccess={handleShipped}
+        />
+      )}
+
+      <ToastStack toasts={toasts} onDismiss={dismissToast} />
     </>
   );
+}
+
+function statusBadgeClasses(status: OrderStatus): string {
+  switch (status) {
+    case "Pagado":
+      return "bg-green-100 text-green-800";
+    case "Enviado":
+      return "bg-blue-100 text-blue-800";
+    case "Entregado":
+      return "bg-purple-100 text-purple-800";
+    default:
+      return "bg-amber-100 text-amber-800";
+  }
 }
 
 function MetricCard({ label, value }: { label: string; value: string }) {

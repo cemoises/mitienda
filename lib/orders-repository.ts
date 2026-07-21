@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
-import type { Order, OrderStatus } from "@/lib/order";
+import type { Carrier, Order, OrderStatus } from "@/lib/order";
 
 type OrderRow = {
   order_number: string;
@@ -14,6 +14,8 @@ type OrderRow = {
   payment_method: Order["paymentMethod"];
   transaction_id: string;
   status: Order["status"];
+  tracking_number: string | null;
+  carrier: string | null;
 };
 
 function toRow(order: Order): OrderRow {
@@ -30,6 +32,8 @@ function toRow(order: Order): OrderRow {
     payment_method: order.paymentMethod,
     transaction_id: order.transactionId,
     status: order.status,
+    tracking_number: order.trackingNumber ?? null,
+    carrier: order.carrier ?? null,
   };
 }
 
@@ -47,6 +51,8 @@ function fromRow(row: OrderRow): Order {
     paymentMethod: row.payment_method,
     transactionId: row.transaction_id,
     status: row.status,
+    trackingNumber: row.tracking_number ?? undefined,
+    carrier: (row.carrier as Carrier | null) ?? undefined,
   };
 }
 
@@ -78,19 +84,40 @@ export async function listOrders(): Promise<{ orders: Order[]; error: string | n
 
 export async function updateOrderStatus(
   orderNumber: string,
-  updates: { status: OrderStatus; transactionId?: string }
-): Promise<{ error: string | null }> {
+  updates: {
+    status: OrderStatus;
+    transactionId?: string;
+    trackingNumber?: string;
+    carrier?: Carrier;
+  }
+): Promise<{ order: Order | null; error: string | null }> {
   if (!isSupabaseConfigured || !supabase) {
-    return { error: "Supabase no está configurado en este entorno." };
+    return { order: null, error: "Supabase no está configurado en este entorno." };
   }
 
   const payload: Record<string, unknown> = { status: updates.status };
   if (updates.transactionId !== undefined) {
     payload.transaction_id = updates.transactionId;
   }
+  if (updates.trackingNumber !== undefined) {
+    payload.tracking_number = updates.trackingNumber;
+  }
+  if (updates.carrier !== undefined) {
+    payload.carrier = updates.carrier;
+  }
 
-  const { error } = await supabase.from("orders").update(payload).eq("order_number", orderNumber);
-  return { error: error?.message ?? null };
+  const { data, error } = await supabase
+    .from("orders")
+    .update(payload)
+    .eq("order_number", orderNumber)
+    .select("*")
+    .single();
+
+  if (error || !data) {
+    return { order: null, error: error?.message ?? "No se pudo actualizar la orden." };
+  }
+
+  return { order: fromRow(data as OrderRow), error: null };
 }
 
 export async function getOrderByNumber(orderNumber: string): Promise<Order | null> {

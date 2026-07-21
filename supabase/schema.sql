@@ -13,8 +13,16 @@ create table if not exists orders (
   coupon_code text,
   payment_method text not null default 'skrill',
   transaction_id text not null default '',
-  status text not null default 'Pendiente de Pago'
+  status text not null default 'Pendiente de Pago',
+  tracking_number text,
+  carrier text
 );
+
+-- Migración idempotente: agrega las columnas de fulfillment si la tabla
+-- "orders" ya existía de una versión anterior (ej. en tu proyecto de Supabase
+-- ya desplegado). Ejecutar este bloque es seguro aunque las columnas ya existan.
+alter table orders add column if not exists tracking_number text;
+alter table orders add column if not exists carrier text;
 
 alter table orders enable row level security;
 

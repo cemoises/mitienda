@@ -4,7 +4,7 @@ import type { Order } from "@/lib/order";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@cemoises.com";
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "PARABOX <onboarding@resend.dev>";
 
-export type OrderEmailType = "customer" | "admin";
+export type OrderEmailType = "customer" | "admin" | "shipping_update";
 
 type SendOrderEmailParams = {
   order: Order;
@@ -20,7 +20,11 @@ export async function sendOrderEmail({
   }
 
   const { to, subject, html } =
-    type === "customer" ? buildCustomerEmail(order) : buildAdminEmail(order);
+    type === "customer"
+      ? buildCustomerEmail(order)
+      : type === "shipping_update"
+        ? buildShippingUpdateEmail(order)
+        : buildAdminEmail(order);
 
   try {
     const { error } = await resend.emails.send({ from: FROM_EMAIL, to, subject, html });
@@ -152,6 +156,59 @@ function buildAdminEmail(order: Order): { to: string; subject: string; html: str
   return {
     to: ADMIN_EMAIL,
     subject: `🔔 Nueva venta: ${order.orderNumber} — $${order.total.toFixed(2)} USD`,
+    html,
+  };
+}
+
+function buildShippingUpdateEmail(order: Order): { to: string; subject: string; html: string } {
+  const html = `
+  <div style="background:#f4f4f5;padding:40px 16px;font-family:Arial, Helvetica, sans-serif;">
+    <table role="presentation" width="100%" style="max-width:480px;margin:0 auto;background:#000000;border-radius:16px;overflow:hidden;">
+      <tr>
+        <td style="padding:32px;">
+          <p style="color:#ffffff;font-size:18px;font-weight:bold;letter-spacing:0.08em;margin:0 0 4px;">PARABOX</p>
+          <p style="color:rgba(255,255,255,0.5);font-size:13px;margin:0 0 28px;">Desk &amp; Focus Collection</p>
+
+          <p style="color:#ffffff;font-size:16px;font-weight:bold;margin:0 0 6px;">📦 Tu pedido está en camino</p>
+          <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0 0 24px;">
+            Tu orden <strong style="color:#ffffff;">${order.orderNumber}</strong> fue despachada.
+          </p>
+
+          <table role="presentation" width="100%" style="border-collapse:collapse;margin-bottom:8px;background:rgba(255,255,255,0.05);border-radius:12px;">
+            <tr>
+              <td style="padding:16px 20px;">
+                <p style="color:rgba(255,255,255,0.5);font-size:12px;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.05em;">
+                  Transportista
+                </p>
+                <p style="color:#ffffff;font-size:15px;font-weight:bold;margin:0 0 16px;">
+                  ${order.carrier ?? "—"}
+                </p>
+                <p style="color:rgba(255,255,255,0.5);font-size:12px;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.05em;">
+                  Número de Seguimiento
+                </p>
+                <p style="color:#ffffff;font-size:15px;font-weight:bold;font-family:monospace;margin:0;">
+                  ${order.trackingNumber ?? "—"}
+                </p>
+              </td>
+            </tr>
+          </table>
+
+          <table role="presentation" width="100%" style="margin-top:24px;border-top:1px solid rgba(255,255,255,0.1);padding-top:20px;">
+            <tr>
+              <td style="color:rgba(255,255,255,0.4);font-size:12px;line-height:1.6;">
+                Enviado a:<br />
+                ${order.shipping.address}, ${order.shipping.city}, ${order.shipping.country} (${order.shipping.postalCode})
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </div>`;
+
+  return {
+    to: order.email,
+    subject: `📦 Tu pedido ${order.orderNumber} está en camino — PARABOX`,
     html,
   };
 }

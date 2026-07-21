@@ -10,9 +10,11 @@ export type ShippingAddress = {
   postalCode: string;
 };
 
-export type OrderStatus = "Pendiente de Pago" | "Pagado";
+export type OrderStatus = "Pendiente de Pago" | "Pagado" | "Enviado" | "Entregado";
 
 export type PaymentMethod = "skrill";
+
+export type Carrier = "DHL" | "FedEx" | "Cainiao / AliExpress Standard" | "Otro";
 
 export type Order = {
   orderNumber: string;
@@ -27,6 +29,8 @@ export type Order = {
   paymentMethod: PaymentMethod;
   transactionId: string;
   status: OrderStatus;
+  trackingNumber?: string;
+  carrier?: Carrier;
 };
 
 const LAST_ORDER_KEY = "parabox_last_order";
