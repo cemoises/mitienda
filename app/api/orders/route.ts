@@ -12,8 +12,8 @@ type OrderRow = {
   discount: number;
   total: number;
   coupon_code: string | null;
+  payment_method: Order["paymentMethod"];
   status: Order["status"];
-  paypal_order_id: string | null;
 };
 
 function toRow(order: Order): OrderRow {
@@ -27,8 +27,8 @@ function toRow(order: Order): OrderRow {
     discount: order.discount,
     total: order.total,
     coupon_code: order.couponCode,
+    payment_method: order.paymentMethod,
     status: order.status,
-    paypal_order_id: order.paypalOrderId ?? null,
   };
 }
 
@@ -43,8 +43,8 @@ function fromRow(row: OrderRow): Order {
     discount: row.discount,
     total: row.total,
     couponCode: row.coupon_code,
+    paymentMethod: row.payment_method,
     status: row.status,
-    paypalOrderId: row.paypal_order_id ?? undefined,
   };
 }
 

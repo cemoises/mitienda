@@ -6,13 +6,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import PayPalCheckoutButton from "@/components/PayPalCheckoutButton";
 import { useCart } from "@/context/CartContext";
 import {
   generateOrderNumber,
   saveLastOrder,
   saveOrderToHistory,
   type Order,
+  type OrderStatus,
+  type PaymentMethod,
   type ShippingAddress,
 } from "@/lib/order";
 import { trackInitiateCheckout } from "@/lib/analytics";
@@ -32,6 +33,11 @@ const COUNTRIES = [
 const COUPON_CODE = "PARABOX10";
 const COUPON_DISCOUNT_RATE = 0.1;
 
+const ORDER_STATUS_BY_PAYMENT_METHOD: Record<PaymentMethod, OrderStatus> = {
+  card: "Pendiente de Despacho",
+  bank_transfer: "Pendiente de Pago",
+};
+
 export default function CheckoutPage() {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -41,7 +47,7 @@ export default function CheckoutPage() {
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<"card" | "paypal">("card");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const discount = appliedCoupon ? totalPrice * COUPON_DISCOUNT_RATE : 0;
@@ -103,6 +109,11 @@ export default function CheckoutPage() {
     event.preventDefault();
     if (isCartEmpty || isSubmitting) return;
 
+    if (!formRef.current?.checkValidity()) {
+      formRef.current?.reportValidity();
+      return;
+    }
+
     const shipping = getShippingFromForm();
     if (!shipping) return;
 
@@ -119,37 +130,10 @@ export default function CheckoutPage() {
         discount,
         total,
         couponCode: appliedCoupon,
-        status: "Pendiente de Despacho",
+        paymentMethod,
+        status: ORDER_STATUS_BY_PAYMENT_METHOD[paymentMethod],
       });
     }, 1200);
-  };
-
-  const handleValidatePaypal = (): boolean => {
-    if (!formRef.current) return false;
-    const isValid = formRef.current.checkValidity();
-    if (!isValid) {
-      formRef.current.reportValidity();
-    }
-    return isValid;
-  };
-
-  const handlePaypalApproved = (paypalOrderId: string) => {
-    const shipping = getShippingFromForm();
-    if (!shipping) return;
-
-    persistOrder({
-      orderNumber: generateOrderNumber(),
-      createdAt: new Date().toISOString(),
-      email,
-      shipping,
-      items,
-      subtotal: totalPrice,
-      discount,
-      total,
-      couponCode: appliedCoupon,
-      status: "Pagado",
-      paypalOrderId,
-    });
   };
 
   if (isCartEmpty) {
@@ -244,45 +228,36 @@ export default function CheckoutPage() {
               </FormSection>
 
               <FormSection title="Método de Pago">
-                <span className="mb-4 inline-flex w-fit items-center gap-1.5 rounded-full bg-black px-3 py-1 text-xs font-semibold text-white">
-                  {paymentMethod === "paypal"
-                    ? "Pasarela Real de PayPal · Entorno Sandbox"
-                    : "Modo Simulación / Prueba"}
-                </span>
-
                 <div className="flex flex-col gap-3">
                   <PaymentOption
                     id="card"
-                    label="Tarjeta de Crédito/Débito (Demo)"
+                    label="Tarjeta de Crédito / Débito"
+                    description="Procesamiento directo"
                     checked={paymentMethod === "card"}
                     onChange={() => setPaymentMethod("card")}
                   />
                   <PaymentOption
-                    id="paypal"
-                    label="PayPal"
-                    checked={paymentMethod === "paypal"}
-                    onChange={() => setPaymentMethod("paypal")}
+                    id="bank_transfer"
+                    label="Transferencia Bancaria / Pago QR"
+                    description="Te enviamos los datos y el código QR por email"
+                    checked={paymentMethod === "bank_transfer"}
+                    onChange={() => setPaymentMethod("bank_transfer")}
                   />
                 </div>
               </FormSection>
 
-              {paymentMethod === "card" ? (
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex w-full items-center justify-center gap-2 rounded-full bg-black px-8 py-4 text-sm font-semibold text-white transition-colors hover:bg-black/80 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {isSubmitting && <Spinner />}
-                  {isSubmitting ? "Procesando pedido..." : "Completar Pedido Simulado"}
-                </button>
-              ) : (
-                <PayPalCheckoutButton
-                  amount={total}
-                  disabled={isSubmitting}
-                  onValidate={handleValidatePaypal}
-                  onApproved={handlePaypalApproved}
-                />
-              )}
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-black px-8 py-4 text-sm font-semibold text-white transition-colors hover:bg-black/80 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isSubmitting && <Spinner />}
+                {isSubmitting
+                  ? "Procesando pedido..."
+                  : paymentMethod === "card"
+                    ? "Pagar"
+                    : "Completar Pedido"}
+              </button>
             </div>
 
             <aside className="h-fit rounded-2xl border border-black/10 bg-[var(--color-surface)] p-6">
@@ -404,11 +379,13 @@ function Field({
 function PaymentOption({
   id,
   label,
+  description,
   checked,
   onChange,
 }: {
   id: string;
   label: string;
+  description: string;
   checked: boolean;
   onChange: () => void;
 }) {
@@ -427,7 +404,10 @@ function PaymentOption({
         onChange={onChange}
         className="h-4 w-4 accent-black"
       />
-      <span className="text-sm font-medium text-black">{label}</span>
+      <span className="flex flex-col">
+        <span className="text-sm font-medium text-black">{label}</span>
+        <span className="text-xs text-black/50">{description}</span>
+      </span>
     </label>
   );
 }

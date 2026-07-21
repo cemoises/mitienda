@@ -7,7 +7,7 @@ import { featuredProducts } from "@/lib/products";
 const TRUST_ITEMS = [
   { title: "Envío Internacional Gratis", description: "En todos los pedidos, sin mínimos." },
   { title: "Garantía de 30 Días", description: "Devolución simple si no te convence." },
-  { title: "Pago Seguro vía PayPal/Stripe", description: "Checkout cifrado y protegido." },
+  { title: "Pago Seguro con Tarjeta o Transferencia", description: "Checkout cifrado y protegido." },
 ];
 
 export default function Home() {

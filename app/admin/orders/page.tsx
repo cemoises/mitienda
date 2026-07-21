@@ -221,8 +221,8 @@ export default function AdminOrdersPage() {
                         <td className="px-4 py-4">
                           <span
                             className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                              order.status === "Pagado"
-                                ? "bg-green-100 text-green-800"
+                              order.status === "Pendiente de Pago"
+                                ? "bg-blue-100 text-blue-800"
                                 : "bg-amber-100 text-amber-800"
                             }`}
                           >

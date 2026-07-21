@@ -11,8 +11,8 @@ create table if not exists orders (
   discount numeric not null default 0,
   total numeric not null,
   coupon_code text,
-  status text not null default 'Pendiente de Despacho',
-  paypal_order_id text
+  payment_method text not null default 'card',
+  status text not null default 'Pendiente de Despacho'
 );
 
 alter table orders enable row level security;
