@@ -10,9 +10,9 @@ export type ShippingAddress = {
   postalCode: string;
 };
 
-export type OrderStatus = "Pendiente de Despacho" | "Pendiente de Pago";
+export type OrderStatus = "Pagado";
 
-export type PaymentMethod = "card" | "bank_transfer";
+export type PaymentMethod = "card";
 
 export type Order = {
   orderNumber: string;
@@ -25,6 +25,7 @@ export type Order = {
   total: number;
   couponCode: string | null;
   paymentMethod: PaymentMethod;
+  transactionId: string;
   status: OrderStatus;
 };
 
@@ -34,6 +35,11 @@ const ALL_ORDERS_KEY = "parabox_all_orders";
 export function generateOrderNumber(): string {
   const random = Math.floor(10000 + Math.random() * 90000);
   return `#PBX-${random}`;
+}
+
+export function generateTransactionId(): string {
+  const random = Math.random().toString(36).slice(2, 10).toUpperCase();
+  return `TXN-${random}`;
 }
 
 export function saveLastOrder(order: Order) {

@@ -219,13 +219,7 @@ export default function AdminOrdersPage() {
                           ${order.total.toFixed(2)}
                         </td>
                         <td className="px-4 py-4">
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                              order.status === "Pendiente de Pago"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-amber-100 text-amber-800"
-                            }`}
-                          >
+                          <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
                             {order.status}
                           </span>
                         </td>

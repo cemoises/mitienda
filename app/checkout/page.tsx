@@ -9,11 +9,10 @@ import Footer from "@/components/Footer";
 import { useCart } from "@/context/CartContext";
 import {
   generateOrderNumber,
+  generateTransactionId,
   saveLastOrder,
   saveOrderToHistory,
   type Order,
-  type OrderStatus,
-  type PaymentMethod,
   type ShippingAddress,
 } from "@/lib/order";
 import { trackInitiateCheckout } from "@/lib/analytics";
@@ -33,10 +32,20 @@ const COUNTRIES = [
 const COUPON_CODE = "PARABOX10";
 const COUPON_DISCOUNT_RATE = 0.1;
 
-const ORDER_STATUS_BY_PAYMENT_METHOD: Record<PaymentMethod, OrderStatus> = {
-  card: "Pendiente de Despacho",
-  bank_transfer: "Pendiente de Pago",
-};
+function formatCardNumber(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 16);
+  return digits.replace(/(.{4})(?=.)/g, "$1 ");
+}
+
+function formatCardExpiry(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 4);
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+}
+
+function formatCardCvc(value: string): string {
+  return value.replace(/\D/g, "").slice(0, 4);
+}
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -47,7 +56,9 @@ export default function CheckoutPage() {
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCvc, setCardCvc] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const discount = appliedCoupon ? totalPrice * COUPON_DISCOUNT_RATE : 0;
@@ -130,8 +141,9 @@ export default function CheckoutPage() {
         discount,
         total,
         couponCode: appliedCoupon,
-        paymentMethod,
-        status: ORDER_STATUS_BY_PAYMENT_METHOD[paymentMethod],
+        paymentMethod: "card",
+        transactionId: generateTransactionId(),
+        status: "Pagado",
       });
     }, 1200);
   };
@@ -228,21 +240,89 @@ export default function CheckoutPage() {
               </FormSection>
 
               <FormSection title="Método de Pago">
-                <div className="flex flex-col gap-3">
-                  <PaymentOption
-                    id="card"
-                    label="Tarjeta de Crédito / Débito"
-                    description="Procesamiento directo"
-                    checked={paymentMethod === "card"}
-                    onChange={() => setPaymentMethod("card")}
-                  />
-                  <PaymentOption
-                    id="bank_transfer"
-                    label="Transferencia Bancaria / Pago QR"
-                    description="Te enviamos los datos y el código QR por email"
-                    checked={paymentMethod === "bank_transfer"}
-                    onChange={() => setPaymentMethod("bank_transfer")}
-                  />
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-medium text-black">
+                    Tarjeta de Crédito / Débito Internacional (Visa, Mastercard, AMEX)
+                  </span>
+                  <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-black px-3 py-1 text-xs font-semibold text-white">
+                    Modo Demo / Pruebas
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-4 rounded-2xl bg-black p-6">
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="cardNumber" className="text-xs font-medium text-white/50">
+                      Número de Tarjeta
+                    </label>
+                    <input
+                      id="cardNumber"
+                      name="cardNumber"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="cc-number"
+                      required
+                      minLength={13}
+                      placeholder="4242 4242 4242 4242"
+                      value={cardNumber}
+                      onChange={(event) => setCardNumber(formatCardNumber(event.target.value))}
+                      className={darkInputClasses}
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="cardName" className="text-xs font-medium text-white/50">
+                      Nombre en la Tarjeta
+                    </label>
+                    <input
+                      id="cardName"
+                      name="cardName"
+                      type="text"
+                      autoComplete="cc-name"
+                      required
+                      placeholder="Como figura en la tarjeta"
+                      className={darkInputClasses}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor="cardExpiry" className="text-xs font-medium text-white/50">
+                        Vencimiento (MM/AA)
+                      </label>
+                      <input
+                        id="cardExpiry"
+                        name="cardExpiry"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="cc-exp"
+                        required
+                        pattern="(0[1-9]|1[0-2])\/\d{2}"
+                        placeholder="MM/AA"
+                        value={cardExpiry}
+                        onChange={(event) => setCardExpiry(formatCardExpiry(event.target.value))}
+                        className={darkInputClasses}
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor="cardCvc" className="text-xs font-medium text-white/50">
+                        CVC
+                      </label>
+                      <input
+                        id="cardCvc"
+                        name="cardCvc"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="cc-csc"
+                        required
+                        minLength={3}
+                        placeholder="123"
+                        value={cardCvc}
+                        onChange={(event) => setCardCvc(formatCardCvc(event.target.value))}
+                        className={darkInputClasses}
+                      />
+                    </div>
+                  </div>
                 </div>
               </FormSection>
 
@@ -252,11 +332,7 @@ export default function CheckoutPage() {
                 className="flex w-full items-center justify-center gap-2 rounded-full bg-black px-8 py-4 text-sm font-semibold text-white transition-colors hover:bg-black/80 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {isSubmitting && <Spinner />}
-                {isSubmitting
-                  ? "Procesando pedido..."
-                  : paymentMethod === "card"
-                    ? "Pagar"
-                    : "Completar Pedido"}
+                {isSubmitting ? "Procesando pedido..." : "Completar Pedido"}
               </button>
             </div>
 
@@ -346,6 +422,9 @@ export default function CheckoutPage() {
 const inputClasses =
   "w-full rounded-lg border border-black/15 bg-white px-3.5 py-2.5 text-sm text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-black";
 
+const darkInputClasses =
+  "w-full rounded-lg border border-white/15 bg-white/5 px-3.5 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/40";
+
 function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
@@ -373,42 +452,6 @@ function Field({
       </label>
       {children}
     </div>
-  );
-}
-
-function PaymentOption({
-  id,
-  label,
-  description,
-  checked,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  description: string;
-  checked: boolean;
-  onChange: () => void;
-}) {
-  return (
-    <label
-      htmlFor={id}
-      className={`flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3.5 transition-colors ${
-        checked ? "border-black bg-black/[0.03]" : "border-black/15"
-      }`}
-    >
-      <input
-        id={id}
-        type="radio"
-        name="paymentMethod"
-        checked={checked}
-        onChange={onChange}
-        className="h-4 w-4 accent-black"
-      />
-      <span className="flex flex-col">
-        <span className="text-sm font-medium text-black">{label}</span>
-        <span className="text-xs text-black/50">{description}</span>
-      </span>
-    </label>
   );
 }
 

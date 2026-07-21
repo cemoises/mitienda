@@ -13,6 +13,7 @@ type OrderRow = {
   total: number;
   coupon_code: string | null;
   payment_method: Order["paymentMethod"];
+  transaction_id: string;
   status: Order["status"];
 };
 
@@ -28,6 +29,7 @@ function toRow(order: Order): OrderRow {
     total: order.total,
     coupon_code: order.couponCode,
     payment_method: order.paymentMethod,
+    transaction_id: order.transactionId,
     status: order.status,
   };
 }
@@ -44,6 +46,7 @@ function fromRow(row: OrderRow): Order {
     total: row.total,
     couponCode: row.coupon_code,
     paymentMethod: row.payment_method,
+    transactionId: row.transaction_id,
     status: row.status,
   };
 }

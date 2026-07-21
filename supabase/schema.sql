@@ -12,7 +12,8 @@ create table if not exists orders (
   total numeric not null,
   coupon_code text,
   payment_method text not null default 'card',
-  status text not null default 'Pendiente de Despacho'
+  transaction_id text not null default '',
+  status text not null default 'Pagado'
 );
 
 alter table orders enable row level security;

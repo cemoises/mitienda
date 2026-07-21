@@ -100,6 +100,10 @@ export default function OrderSuccessPage() {
                     <span>${order.total.toFixed(2)} USD</span>
                   </div>
                 </div>
+
+                <p className="mt-4 border-t border-black/10 pt-4 text-xs text-black/40">
+                  ID de transacción (demo): <span className="font-mono">{order.transactionId}</span>
+                </p>
               </div>
             </>
           )}
