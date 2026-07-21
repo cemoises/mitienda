@@ -1,13 +1,20 @@
 "use client";
 
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useRef, useState, FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import PayPalCheckoutButton from "@/components/PayPalCheckoutButton";
 import { useCart } from "@/context/CartContext";
-import { generateOrderNumber, saveLastOrder, saveOrderToHistory } from "@/lib/order";
+import {
+  generateOrderNumber,
+  saveLastOrder,
+  saveOrderToHistory,
+  type Order,
+  type ShippingAddress,
+} from "@/lib/order";
 import { trackInitiateCheckout } from "@/lib/analytics";
 
 const COUNTRIES = [
@@ -27,6 +34,7 @@ const COUPON_DISCOUNT_RATE = 0.1;
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
   const { items, totalPrice, clearCart } = useCart();
 
   const [email, setEmail] = useState("");
@@ -60,12 +68,10 @@ export default function CheckoutPage() {
     }
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (isCartEmpty || isSubmitting) return;
-
-    const formData = new FormData(event.currentTarget);
-    const shipping = {
+  const getShippingFromForm = (): ShippingAddress | null => {
+    if (!formRef.current) return null;
+    const formData = new FormData(formRef.current);
+    return {
       firstName: String(formData.get("firstName") ?? ""),
       lastName: String(formData.get("lastName") ?? ""),
       phone: String(formData.get("phone") ?? ""),
@@ -74,11 +80,36 @@ export default function CheckoutPage() {
       country: String(formData.get("country") ?? ""),
       postalCode: String(formData.get("postalCode") ?? ""),
     };
+  };
+
+  const persistOrder = (order: Order) => {
+    saveLastOrder(order);
+    saveOrderToHistory(order);
+
+    fetch("/api/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(order),
+    }).catch(() => {
+      // Si la persistencia en la nube (Supabase) falla, igual conservamos
+      // la orden localmente y continuamos el flujo hacia la confirmación.
+    });
+
+    clearCart();
+    router.push("/order-success");
+  };
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isCartEmpty || isSubmitting) return;
+
+    const shipping = getShippingFromForm();
+    if (!shipping) return;
 
     setIsSubmitting(true);
 
     window.setTimeout(() => {
-      const order = {
+      persistOrder({
         orderNumber: generateOrderNumber(),
         createdAt: new Date().toISOString(),
         email,
@@ -88,24 +119,37 @@ export default function CheckoutPage() {
         discount,
         total,
         couponCode: appliedCoupon,
-        status: "Pendiente de Despacho" as const,
-      };
-
-      saveLastOrder(order);
-      saveOrderToHistory(order);
-
-      fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(order),
-      }).catch(() => {
-        // El checkout es simulado: si la persistencia en la nube falla,
-        // igual conservamos la orden localmente y continuamos el flujo.
+        status: "Pendiente de Despacho",
       });
-
-      clearCart();
-      router.push("/order-success");
     }, 1200);
+  };
+
+  const handleValidatePaypal = (): boolean => {
+    if (!formRef.current) return false;
+    const isValid = formRef.current.checkValidity();
+    if (!isValid) {
+      formRef.current.reportValidity();
+    }
+    return isValid;
+  };
+
+  const handlePaypalApproved = (paypalOrderId: string) => {
+    const shipping = getShippingFromForm();
+    if (!shipping) return;
+
+    persistOrder({
+      orderNumber: generateOrderNumber(),
+      createdAt: new Date().toISOString(),
+      email,
+      shipping,
+      items,
+      subtotal: totalPrice,
+      discount,
+      total,
+      couponCode: appliedCoupon,
+      status: "Pagado",
+      paypalOrderId,
+    });
   };
 
   if (isCartEmpty) {
@@ -139,7 +183,7 @@ export default function CheckoutPage() {
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
           <h1 className="mb-10 text-3xl font-bold tracking-tight text-black">Checkout</h1>
 
-          <form onSubmit={handleSubmit} className="grid gap-10 lg:grid-cols-[1fr_400px]">
+          <form ref={formRef} onSubmit={handleSubmit} className="grid gap-10 lg:grid-cols-[1fr_400px]">
             <div className="flex flex-col gap-10">
               <FormSection title="Información de Contacto">
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -201,7 +245,9 @@ export default function CheckoutPage() {
 
               <FormSection title="Método de Pago">
                 <span className="mb-4 inline-flex w-fit items-center gap-1.5 rounded-full bg-black px-3 py-1 text-xs font-semibold text-white">
-                  Modo Simulación / Prueba
+                  {paymentMethod === "paypal"
+                    ? "Pasarela Real de PayPal · Entorno Sandbox"
+                    : "Modo Simulación / Prueba"}
                 </span>
 
                 <div className="flex flex-col gap-3">
@@ -213,21 +259,30 @@ export default function CheckoutPage() {
                   />
                   <PaymentOption
                     id="paypal"
-                    label="PayPal (Demo)"
+                    label="PayPal"
                     checked={paymentMethod === "paypal"}
                     onChange={() => setPaymentMethod("paypal")}
                   />
                 </div>
               </FormSection>
 
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="flex w-full items-center justify-center gap-2 rounded-full bg-black px-8 py-4 text-sm font-semibold text-white transition-colors hover:bg-black/80 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {isSubmitting && <Spinner />}
-                {isSubmitting ? "Procesando pedido..." : "Completar Pedido Simulado"}
-              </button>
+              {paymentMethod === "card" ? (
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-black px-8 py-4 text-sm font-semibold text-white transition-colors hover:bg-black/80 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isSubmitting && <Spinner />}
+                  {isSubmitting ? "Procesando pedido..." : "Completar Pedido Simulado"}
+                </button>
+              ) : (
+                <PayPalCheckoutButton
+                  amount={total}
+                  disabled={isSubmitting}
+                  onValidate={handleValidatePaypal}
+                  onApproved={handlePaypalApproved}
+                />
+              )}
             </div>
 
             <aside className="h-fit rounded-2xl border border-black/10 bg-[var(--color-surface)] p-6">

@@ -10,7 +10,7 @@ export type ShippingAddress = {
   postalCode: string;
 };
 
-export type OrderStatus = "Pendiente de Despacho";
+export type OrderStatus = "Pendiente de Despacho" | "Pagado";
 
 export type Order = {
   orderNumber: string;
@@ -23,6 +23,7 @@ export type Order = {
   total: number;
   couponCode: string | null;
   status: OrderStatus;
+  paypalOrderId?: string;
 };
 
 const LAST_ORDER_KEY = "parabox_last_order";
