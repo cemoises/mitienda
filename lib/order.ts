@@ -10,9 +10,9 @@ export type ShippingAddress = {
   postalCode: string;
 };
 
-export type OrderStatus = "Pagado";
+export type OrderStatus = "Pendiente de Pago" | "Pagado";
 
-export type PaymentMethod = "card";
+export type PaymentMethod = "skrill";
 
 export type Order = {
   orderNumber: string;

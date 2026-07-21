@@ -1,22 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Elements } from "@stripe/react-stripe-js";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import StripeCheckoutForm from "@/components/StripeCheckoutForm";
 import { useCart } from "@/context/CartContext";
-import {
-  generateOrderNumber,
-  saveLastOrder,
-  saveOrderToHistory,
-  type Order,
-  type ShippingAddress,
-} from "@/lib/order";
-import { stripePromise } from "@/lib/stripe-client";
+import { saveLastOrder, saveOrderToHistory, type Order, type ShippingAddress } from "@/lib/order";
 import { trackInitiateCheckout } from "@/lib/analytics";
 
 const COUNTRIES = [
@@ -35,7 +25,6 @@ const COUPON_CODE = "PARABOX10";
 const COUPON_DISCOUNT_RATE = 0.1;
 
 export default function CheckoutPage() {
-  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const { items, totalPrice, clearCart } = useCart();
 
@@ -43,8 +32,8 @@ export default function CheckoutPage() {
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [paymentInitError, setPaymentInitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const discount = appliedCoupon ? totalPrice * COUPON_DISCOUNT_RATE : 0;
   const total = totalPrice - discount;
@@ -58,45 +47,6 @@ export default function CheckoutPage() {
     // Se dispara una sola vez al entrar a checkout con items en el carrito.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCartEmpty]);
-
-  useEffect(() => {
-    if (isCartEmpty || total <= 0) return;
-
-    let cancelled = false;
-
-    async function createPaymentIntent() {
-      try {
-        const response = await fetch("/api/create-payment-intent", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ amount: total }),
-        });
-
-        const data = (await response.json()) as { clientSecret?: string; error?: string };
-
-        if (!response.ok || !data.clientSecret) {
-          throw new Error(data.error ?? "No se pudo inicializar el pago.");
-        }
-
-        if (!cancelled) {
-          setClientSecret(data.clientSecret);
-          setPaymentInitError(null);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setPaymentInitError(
-            error instanceof Error ? error.message : "No se pudo inicializar el pago."
-          );
-        }
-      }
-    }
-
-    createPaymentIntent();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isCartEmpty, total]);
 
   const handleApplyCoupon = () => {
     const normalized = couponInput.trim().toUpperCase();
@@ -123,48 +73,57 @@ export default function CheckoutPage() {
     };
   };
 
-  const validateContactAndShipping = (): boolean => {
-    if (!formRef.current) return false;
-    const isValid = formRef.current.checkValidity();
-    if (!isValid) {
-      formRef.current.reportValidity();
-    }
-    return isValid;
-  };
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isCartEmpty || isSubmitting) return;
 
-  const handlePaymentSuccess = (paymentIntentId: string) => {
+    if (!formRef.current?.checkValidity()) {
+      formRef.current?.reportValidity();
+      return;
+    }
+
     const shipping = getShippingFromForm();
     if (!shipping) return;
 
-    const order: Order = {
-      orderNumber: generateOrderNumber(),
-      createdAt: new Date().toISOString(),
-      email,
-      shipping,
-      items,
-      subtotal: totalPrice,
-      discount,
-      total,
-      couponCode: appliedCoupon,
-      paymentMethod: "card",
-      transactionId: paymentIntentId,
-      status: "Pagado",
-    };
+    setIsSubmitting(true);
+    setSubmitError(null);
 
-    saveLastOrder(order);
-    saveOrderToHistory(order);
+    try {
+      const response = await fetch("/api/checkout/skrill", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          shipping,
+          items,
+          subtotal: totalPrice,
+          discount,
+          total,
+          couponCode: appliedCoupon,
+        }),
+      });
 
-    fetch("/api/orders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(order),
-    }).catch(() => {
-      // Si la persistencia en la nube (Supabase) falla, igual conservamos
-      // la orden localmente y continuamos el flujo hacia la confirmación.
-    });
+      const data = (await response.json()) as {
+        redirectUrl?: string;
+        order?: Order;
+        error?: string;
+      };
 
-    clearCart();
-    router.push("/order-success");
+      if (!response.ok || !data.redirectUrl || !data.order) {
+        throw new Error(data.error ?? "No se pudo iniciar el pago con Skrill.");
+      }
+
+      saveLastOrder(data.order);
+      saveOrderToHistory(data.order);
+      clearCart();
+
+      window.location.href = data.redirectUrl;
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error ? error.message : "No se pudo iniciar el pago con Skrill."
+      );
+      setIsSubmitting(false);
+    }
   };
 
   if (isCartEmpty) {
@@ -198,116 +157,102 @@ export default function CheckoutPage() {
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
           <h1 className="mb-10 text-3xl font-bold tracking-tight text-black">Checkout</h1>
 
-          <div className="grid gap-10 lg:grid-cols-[1fr_400px]">
+          <form ref={formRef} onSubmit={handleSubmit} className="grid gap-10 lg:grid-cols-[1fr_400px]">
             <div className="flex flex-col gap-10">
-              <form
-                ref={formRef}
-                onSubmit={(event) => event.preventDefault()}
-                className="flex flex-col gap-10"
-              >
-                <FormSection title="Información de Contacto">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="Email" htmlFor="email">
-                      <input
-                        id="email"
-                        type="email"
-                        required
-                        value={email}
-                        onChange={(event) => setEmail(event.target.value)}
-                        placeholder="tu@email.com"
-                        className={inputClasses}
-                      />
-                    </Field>
-                    <Field label="Teléfono" htmlFor="phone">
-                      <input
-                        id="phone"
-                        name="phone"
-                        type="tel"
-                        required
-                        placeholder="+1 555 123 4567"
-                        className={inputClasses}
-                      />
-                    </Field>
-                  </div>
-                </FormSection>
+              <FormSection title="Información de Contacto">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Email" htmlFor="email">
+                    <input
+                      id="email"
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder="tu@email.com"
+                      className={inputClasses}
+                    />
+                  </Field>
+                  <Field label="Teléfono" htmlFor="phone">
+                    <input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      required
+                      placeholder="+1 555 123 4567"
+                      className={inputClasses}
+                    />
+                  </Field>
+                </div>
+              </FormSection>
 
-                <FormSection title="Dirección de Envío">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="Nombre" htmlFor="firstName">
-                      <input id="firstName" name="firstName" type="text" required className={inputClasses} />
-                    </Field>
-                    <Field label="Apellido" htmlFor="lastName">
-                      <input id="lastName" name="lastName" type="text" required className={inputClasses} />
-                    </Field>
-                    <Field label="Dirección" htmlFor="address" full>
-                      <input id="address" name="address" type="text" required className={inputClasses} />
-                    </Field>
-                    <Field label="Ciudad" htmlFor="city">
-                      <input id="city" name="city" type="text" required className={inputClasses} />
-                    </Field>
-                    <Field label="País" htmlFor="country">
-                      <select id="country" name="country" required defaultValue="" className={inputClasses}>
-                        <option value="" disabled>
-                          Seleccioná un país
+              <FormSection title="Dirección de Envío">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Nombre" htmlFor="firstName">
+                    <input id="firstName" name="firstName" type="text" required className={inputClasses} />
+                  </Field>
+                  <Field label="Apellido" htmlFor="lastName">
+                    <input id="lastName" name="lastName" type="text" required className={inputClasses} />
+                  </Field>
+                  <Field label="Dirección" htmlFor="address" full>
+                    <input id="address" name="address" type="text" required className={inputClasses} />
+                  </Field>
+                  <Field label="Ciudad" htmlFor="city">
+                    <input id="city" name="city" type="text" required className={inputClasses} />
+                  </Field>
+                  <Field label="País" htmlFor="country">
+                    <select id="country" name="country" required defaultValue="" className={inputClasses}>
+                      <option value="" disabled>
+                        Seleccioná un país
+                      </option>
+                      {COUNTRIES.map((country) => (
+                        <option key={country} value={country}>
+                          {country}
                         </option>
-                        {COUNTRIES.map((country) => (
-                          <option key={country} value={country}>
-                            {country}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                    <Field label="Código Postal" htmlFor="postalCode">
-                      <input id="postalCode" name="postalCode" type="text" required className={inputClasses} />
-                    </Field>
-                  </div>
-                </FormSection>
-              </form>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Código Postal" htmlFor="postalCode">
+                    <input id="postalCode" name="postalCode" type="text" required className={inputClasses} />
+                  </Field>
+                </div>
+              </FormSection>
 
               <FormSection title="Método de Pago">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                   <span className="text-sm font-medium text-black">
-                    Tarjeta de Crédito / Débito Internacional (Visa, Mastercard, AMEX)
+                    Tarjeta de Crédito / Débito Internacional (Visa, Mastercard, AMEX - Vía Skrill)
                   </span>
                   <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-black px-3 py-1 text-xs font-semibold text-white">
-                    Pago seguro con Stripe
+                    Pago seguro con Skrill
                   </span>
                 </div>
 
-                {clientSecret ? (
-                  <Elements
-                    key={clientSecret}
-                    stripe={stripePromise}
-                    options={{
-                      clientSecret,
-                      appearance: {
-                        theme: "night",
-                        variables: {
-                          colorPrimary: "#ffffff",
-                          colorBackground: "#000000",
-                          colorText: "#ffffff",
-                          colorDanger: "#f87171",
-                          borderRadius: "12px",
-                        },
-                      },
-                    }}
-                  >
-                    <StripeCheckoutForm
-                      onBeforeConfirm={validateContactAndShipping}
-                      onSuccess={handlePaymentSuccess}
-                    />
-                  </Elements>
-                ) : paymentInitError ? (
-                  <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3.5 text-center text-sm text-red-600">
-                    No se pudo inicializar el pago: {paymentInitError}
-                  </p>
-                ) : (
-                  <div className="flex w-full items-center justify-center gap-2 rounded-full border border-black/15 px-8 py-4 text-sm font-medium text-black/60">
-                    <Spinner />
-                    Preparando el pago seguro...
+                <div className="rounded-2xl bg-black p-6">
+                  <div className="flex items-start gap-3">
+                    <LockIconWhite />
+                    <p className="text-sm leading-relaxed text-white/70">
+                      Al hacer clic en <span className="font-semibold text-white">Completar Pedido</span>{" "}
+                      serás redirigido a la pasarela segura de Skrill para ingresar los datos de tu
+                      tarjeta y confirmar el pago. Al finalizar, volverás automáticamente a PARABOX.
+                    </p>
                   </div>
-                )}
+                </div>
               </FormSection>
+
+              {submitError && (
+                <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3.5 text-center text-sm text-red-600">
+                  {submitError}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-black px-8 py-4 text-sm font-semibold text-white transition-colors hover:bg-black/80 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isSubmitting && <Spinner />}
+                {isSubmitting ? "Redirigiendo a Skrill..." : "Completar Pedido"}
+              </button>
             </div>
 
             <aside className="h-fit rounded-2xl border border-black/10 bg-[var(--color-surface)] p-6">
@@ -384,7 +329,7 @@ export default function CheckoutPage() {
                 Pagos encriptados con SSL de 256 bits
               </p>
             </aside>
-          </div>
+          </form>
         </div>
       </main>
 
@@ -428,7 +373,7 @@ function Field({
 
 function Spinner() {
   return (
-    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+    <svg className="h-4 w-4 animate-spin text-white" viewBox="0 0 24 24" fill="none">
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
     </svg>
@@ -438,6 +383,15 @@ function Spinner() {
 function LockIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  );
+}
+
+function LockIconWhite() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0 text-white/70">
       <rect x="3" y="11" width="18" height="11" rx="2" />
       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
     </svg>

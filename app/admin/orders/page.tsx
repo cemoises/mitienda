@@ -91,8 +91,9 @@ export default function AdminOrdersPage() {
   }, []);
 
   const totalOrders = orders.length;
-  const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
-  const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+  const paidOrders = orders.filter((order) => order.status === "Pagado");
+  const totalRevenue = paidOrders.reduce((sum, order) => sum + order.total, 0);
+  const averageOrderValue = paidOrders.length > 0 ? totalRevenue / paidOrders.length : 0;
 
   const handleExportCsv = () => {
     if (orders.length === 0) return;
@@ -148,7 +149,7 @@ export default function AdminOrdersPage() {
             <>
               <div className="mb-8 grid gap-4 sm:grid-cols-3">
                 <MetricCard label="Total Órdenes" value={String(totalOrders)} />
-                <MetricCard label="Ingresos Totales" value={`$${totalRevenue.toFixed(2)} USD`} />
+                <MetricCard label="Ingresos Totales (Pagado)" value={`$${totalRevenue.toFixed(2)} USD`} />
                 <MetricCard label="Ticket Promedio (AOV)" value={`$${averageOrderValue.toFixed(2)} USD`} />
               </div>
 
@@ -219,7 +220,13 @@ export default function AdminOrdersPage() {
                           ${order.total.toFixed(2)}
                         </td>
                         <td className="px-4 py-4">
-                          <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                              order.status === "Pagado"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-amber-100 text-amber-800"
+                            }`}
+                          >
                             {order.status}
                           </span>
                         </td>

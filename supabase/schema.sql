@@ -11,9 +11,9 @@ create table if not exists orders (
   discount numeric not null default 0,
   total numeric not null,
   coupon_code text,
-  payment_method text not null default 'card',
+  payment_method text not null default 'skrill',
   transaction_id text not null default '',
-  status text not null default 'Pagado'
+  status text not null default 'Pendiente de Pago'
 );
 
 alter table orders enable row level security;
@@ -28,3 +28,12 @@ create policy "Allow public inserts" on orders
 create policy "Allow public reads" on orders
   for select
   using (true);
+
+-- Permite que el webhook de Skrill marque la orden como 'Pagado'.
+-- IMPORTANTE: en producción, mové esta escritura a una SUPABASE_SERVICE_ROLE_KEY
+-- server-only (sin exponerla al cliente) y eliminá esta policy pública de UPDATE,
+-- para que solo el backend confiable pueda modificar el estado de una orden.
+create policy "Allow public updates" on orders
+  for update
+  using (true)
+  with check (true);
