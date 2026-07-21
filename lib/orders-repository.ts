@@ -92,3 +92,21 @@ export async function updateOrderStatus(
   const { error } = await supabase.from("orders").update(payload).eq("order_number", orderNumber);
   return { error: error?.message ?? null };
 }
+
+export async function getOrderByNumber(orderNumber: string): Promise<Order | null> {
+  if (!isSupabaseConfigured || !supabase) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("orders")
+    .select("*")
+    .eq("order_number", orderNumber)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return fromRow(data as OrderRow);
+}

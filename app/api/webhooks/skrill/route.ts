@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
-import { updateOrderStatus } from "@/lib/orders-repository";
+import { updateOrderStatus, getOrderByNumber } from "@/lib/orders-repository";
+import { sendOrderEmail } from "@/lib/email";
 
 const SKRILL_MERCHANT_ID = process.env.SKRILL_MERCHANT_ID || "demo-merchant-id";
 const SKRILL_SECRET_WORD = process.env.SKRILL_SECRET_WORD || "demo-secret-word";
@@ -41,10 +42,22 @@ export async function POST(request: Request) {
 
   // status "2" = pago procesado exitosamente (documentación de Skrill Quick Checkout).
   if (status === "2" && orderNumber) {
-    await updateOrderStatus(orderNumber, {
+    const { error } = await updateOrderStatus(orderNumber, {
       status: "Pagado",
       transactionId: skrillTransactionId,
     });
+
+    if (!error) {
+      const order = await getOrderByNumber(orderNumber);
+      if (order) {
+        // Los emails no deben bloquear ni hacer fallar la confirmación del
+        // webhook ante Skrill: se envían en paralelo y se ignoran los errores.
+        await Promise.allSettled([
+          sendOrderEmail({ order, type: "customer" }),
+          sendOrderEmail({ order, type: "admin" }),
+        ]);
+      }
+    }
   }
 
   return new NextResponse("OK", { status: 200 });
