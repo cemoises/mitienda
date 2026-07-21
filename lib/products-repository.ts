@@ -50,14 +50,19 @@ function fromRow(row: ProductRow): AdminProduct {
   return {
     id: row.id,
     name: row.name,
-    description: row.description,
-    price: row.price,
-    stock: row.stock,
-    category: row.category,
-    imageUrl: row.image_url,
-    status: row.status,
-    rating: row.rating,
-    reviewCount: row.review_count,
+    description: row.description ?? "",
+    price: row.price ?? 0,
+    stock: row.stock ?? 0,
+    category: row.category ?? "",
+    imageUrl: row.image_url ?? "",
+    status: row.status ?? "active",
+    // Defensivo: si la migración de supabase/schema.sql que agrega estas
+    // columnas todavía no corrió contra la base real, Supabase simplemente
+    // no las devuelve. Sin este fallback, cualquier .toFixed()/.map() sobre
+    // un valor undefined tira el sitio entero abajo (nos pasó en el primer
+    // intento de deploy de este mismo cambio).
+    rating: row.rating ?? 4.8,
+    reviewCount: row.review_count ?? 0,
     benefits: row.benefits ?? [],
     createdAt: row.created_at,
   };
