@@ -6,7 +6,13 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useCart } from "@/context/CartContext";
-import { saveLastOrder, saveOrderToHistory, type Order, type ShippingAddress } from "@/lib/order";
+import {
+  saveLastOrder,
+  saveOrderToHistory,
+  type Order,
+  type PaymentMethod,
+  type ShippingAddress,
+} from "@/lib/order";
 import { trackInitiateCheckout } from "@/lib/analytics";
 import { findCoupon } from "@/lib/coupons";
 
@@ -27,6 +33,7 @@ export default function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCart();
 
   const [email, setEmail] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("skrill");
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
@@ -87,8 +94,12 @@ export default function CheckoutPage() {
     setIsSubmitting(true);
     setSubmitError(null);
 
+    const checkoutEndpoint =
+      paymentMethod === "pagopar" ? "/api/checkout/pagopar" : "/api/checkout/skrill";
+    const gatewayLabel = paymentMethod === "pagopar" ? "Pagopar" : "Skrill";
+
     try {
-      const response = await fetch("/api/checkout/skrill", {
+      const response = await fetch(checkoutEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -109,7 +120,7 @@ export default function CheckoutPage() {
       };
 
       if (!response.ok || !data.redirectUrl || !data.order) {
-        throw new Error(data.error ?? "No se pudo iniciar el pago con Skrill.");
+        throw new Error(data.error ?? `No se pudo iniciar el pago con ${gatewayLabel}.`);
       }
 
       saveLastOrder(data.order);
@@ -119,7 +130,7 @@ export default function CheckoutPage() {
       window.location.href = data.redirectUrl;
     } catch (error) {
       setSubmitError(
-        error instanceof Error ? error.message : "No se pudo iniciar el pago con Skrill."
+        error instanceof Error ? error.message : `No se pudo iniciar el pago con ${gatewayLabel}.`
       );
       setIsSubmitting(false);
     }
@@ -217,13 +228,21 @@ export default function CheckoutPage() {
               </FormSection>
 
               <FormSection title="Método de Pago">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-sm font-medium text-black">
-                    Tarjeta de Crédito / Débito Internacional (Visa, Mastercard, AMEX - Vía Skrill)
-                  </span>
-                  <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-black px-3 py-1 text-xs font-semibold text-white">
-                    Pago seguro con Skrill
-                  </span>
+                <div className="mb-4 grid gap-3 sm:grid-cols-2">
+                  <PaymentOption
+                    id="payment-skrill"
+                    label="Tarjeta Internacional"
+                    description="Visa, Mastercard, AMEX — vía Skrill"
+                    checked={paymentMethod === "skrill"}
+                    onSelect={() => setPaymentMethod("skrill")}
+                  />
+                  <PaymentOption
+                    id="payment-pagopar"
+                    label="Pagopar"
+                    description="Tarjetas y billeteras locales de Paraguay"
+                    checked={paymentMethod === "pagopar"}
+                    onSelect={() => setPaymentMethod("pagopar")}
+                  />
                 </div>
 
                 <div className="rounded-2xl bg-black p-6">
@@ -231,8 +250,9 @@ export default function CheckoutPage() {
                     <LockIconWhite />
                     <p className="text-sm leading-relaxed text-white/70">
                       Al hacer clic en <span className="font-semibold text-white">Completar Pedido</span>{" "}
-                      serás redirigido a la pasarela segura de Skrill para ingresar los datos de tu
-                      tarjeta y confirmar el pago. Al finalizar, volverás automáticamente a PARABOX.
+                      serás redirigido a la pasarela segura de{" "}
+                      {paymentMethod === "pagopar" ? "Pagopar" : "Skrill"} para ingresar los datos de tu
+                      pago y confirmarlo. Al finalizar, volverás automáticamente a PARABOX.
                     </p>
                   </div>
                 </div>
@@ -250,7 +270,9 @@ export default function CheckoutPage() {
                 className="flex w-full items-center justify-center gap-2 rounded-full bg-black px-8 py-4 text-sm font-semibold text-white transition-colors hover:bg-black/80 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {isSubmitting && <Spinner />}
-                {isSubmitting ? "Redirigiendo a Skrill..." : "Completar Pedido"}
+                {isSubmitting
+                  ? `Redirigiendo a ${paymentMethod === "pagopar" ? "Pagopar" : "Skrill"}...`
+                  : "Completar Pedido"}
               </button>
             </div>
 
@@ -367,6 +389,42 @@ function Field({
       </label>
       {children}
     </div>
+  );
+}
+
+function PaymentOption({
+  id,
+  label,
+  description,
+  checked,
+  onSelect,
+}: {
+  id: string;
+  label: string;
+  description: string;
+  checked: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <label
+      htmlFor={id}
+      className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3.5 transition-colors ${
+        checked ? "border-black bg-black/[0.03]" : "border-black/15 hover:border-black/30"
+      }`}
+    >
+      <input
+        id={id}
+        type="radio"
+        name="paymentMethod"
+        checked={checked}
+        onChange={onSelect}
+        className="mt-0.5 h-4 w-4 accent-black"
+      />
+      <span className="flex flex-col gap-0.5">
+        <span className="text-sm font-semibold text-black">{label}</span>
+        <span className="text-xs text-black/50">{description}</span>
+      </span>
+    </label>
   );
 }
 
